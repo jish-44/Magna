@@ -2,8 +2,12 @@
 
 **How to use this file**
 
+> **Project location:** `C:\Users\jishn\Herd\magna-cms` (served by Herd at `magna-cms.test`).
+> All spec documents live inside this repo under `docs/` — there is no external specs folder.
+> **Stage 0 is complete** — check [PROGRESS.md](../PROGRESS.md) for current status before starting any stage.
+
 1. Run **one stage per Claude Code session**, in order. Don't combine stages.
-2. Open Claude Code in the project folder (`C:\Users\jishn\Herd\magna` after Stage 0) and paste the stage's prompt.
+2. Open Claude Code in the project folder `C:\Users\jishn\Herd\magna-cms` and paste the stage's prompt.
 3. A stage is done only when its **acceptance criteria** pass. If Claude says done, ask it to run the tests and show the output.
 4. After each stage: review the diff, commit. The prompts tell Claude to update `PROGRESS.md` — that file is how the *next* session knows where things stand.
 5. If a session goes sideways, revert to the last commit and re-run the prompt. Never build a stage on top of a broken one.
@@ -12,19 +16,21 @@ Stages 0–13 = report Phase 1 (MVP). Stages 14–16 = Phase 2. Stages 17–18 =
 
 ---
 
-## Stage 0 — Project scaffold & engineering rig
+## Stage 0 — Project scaffold & engineering rig ✅ COMPLETE
+
+*(Completed 2026-07-02 — prompt kept for the record; do not re-run. The project was scaffolded on Laravel 13 and the folder later renamed to `magna-cms` so Herd could serve it. See docs/adr/ADR-0001 and PROGRESS.md.)*
 
 ```
-Create a new Laravel 13 project named "magna" in C:\Users\jishn\Herd\magna and set up the engineering rig for a long-running open-source project.
+Create a new Laravel 13 project named "magna-cms" in C:\Users\jishn\Herd\magna-cms and set up the engineering rig for a long-running open-source project.
 
-Context: This is Magna CMS, an API-first headless CMS. The full specifications live in "C:\Users\jishn\Herd\Magna CMS\docs\" and "C:\Users\jishn\Herd\Magna CMS\Magna-v2.md". First, copy Magna-v2.md and the entire docs folder into the new project under docs/ — these specs are the contract for everything we build. Read Magna-v2.md fully before doing anything else.
+Context: This is Magna CMS, an API-first headless CMS. The full specifications are the docs/*.md files of this repository (Magna-v2.md, plugin-development-guide.md, theme-development-guide.md, security-spec.md, performance-spec.md, default-theme-spec.md, store-plan.md) — these specs are the contract for everything we build. Read docs/Magna-v2.md fully before doing anything else.
 
 Then:
 1. git init, sensible .gitignore, initial commit of the bare scaffold.
 2. Install and configure: Pest (testing), PHPStan at the highest level the fresh app passes (target level 9 for our own src later), Laravel Pint, and a composer script "check" that runs pint --test, phpstan, and pest.
 3. Configure the app: SQLite for local dev tests, but write config and migrations that are PostgreSQL-first (we deploy on Postgres 16). Use ULIDs for all primary keys on models we create.
 4. Create the namespace skeleton under app/: Magna kernel code will live in src/Magna (own composer autoload "Magna\\" => "src/Magna/") — create that structure with a placeholder MagnaServiceProvider registered in bootstrap.
-5. Create docs/adr/ with ADR-0001 recording the stack decisions (Laravel 12, Filament 4, Postgres-first, ULIDs, plugins as Composer packages) — pull the rationale from docs/Magna-v2.md.
+5. Create docs/adr/ with ADR-0001 recording the stack decisions (Laravel 13, Filament 4, Postgres-first, ULIDs, plugins as Composer packages) — pull the rationale from docs/Magna-v2.md.
 6. Create PROGRESS.md at the repo root: a stage checklist matching docs/build-plan.md, with Stage 0 marked complete and a "notes for next session" section.
 7. GitHub Actions workflow: run composer "check" on push against PHP 8.3 + 8.4, with both SQLite and Postgres service containers.
 
