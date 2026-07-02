@@ -7,7 +7,7 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
 ## Stage checklist
 
 - [x] **Stage 0 — Project scaffold & engineering rig**
-- [ ] Stage 1 — Kernel: users, roles, permissions (RBAC)
+- [x] **Stage 1 — Kernel: users, roles, permissions (RBAC)**
 - [ ] Stage 2 — Kernel: authentication & API tokens
 - [ ] Stage 3 — Kernel: settings system & audit log
 - [ ] Stage 4 — Plugin system
@@ -34,9 +34,18 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
 - SQLite for dev/tests (`database/database.sqlite`), Postgres-first policy per ADR. CI: PHP 8.3/8.4 matrix, suite runs on SQLite **and** Postgres 16 service.
 - Spec docs copied into `docs/`; project README in place.
 
-## Notes for next session (Stage 1)
+## Stage 1 notes (2026-07-02)
 
-- Follow the Stage 1 prompt in docs/build-plan.md: RBAC kernel in `src/Magna/Auth` + `src/Magna/Users`.
-- Remember: permissions are in-code registry keys (not DB rows), wildcard grants, Gate integration, super-admin bypass via `Gate::before`.
-- The scaffold `app/Models/User.php` will need replacing/extending with the Magna user model (ULIDs — scaffold user uses auto-increment; migrate accordingly).
-- Watch: Filament 4 ↔ Laravel 13 compatibility only matters at Stage 10, but if adding packages, prefer ones already L13-compatible.
+- RBAC kernel in `src/Magna/Auth` + `src/Magna/Users`. Key pieces: `PermissionRegistry` (in-code string keys, validated format, no wildcards in registered keys), `PermissionMatcher` (trailing `*` = any remainder, mid `*` = exactly one segment), `Role`/`RolePermission` models, `HasRoles` trait (memoized grants), `Magna\Users\User` (ULID, argon2id via config/hashing.php, `UserStatus` enum).
+- Gate integration convention: **abilities containing a dot are permission keys** and resolve exclusively through the registry (unregistered → deny + `Log::warning`); dot-free abilities fall through to policies/closures; super-admin roles bypass everything via `Gate::before`.
+- Scaffold `app/Models/User.php` deleted; `config/auth.php` points at `Magna\Users\User`. Users migration rewritten for ULID + status before any release exists (allowed only pre-1.0).
+- Core kernel permission keys registered in `AuthServiceProvider` (users/roles/settings/plugins/audit). Seeder: super-admin, admin, editor (`content.*`, `media.*`), viewer (`content.*.view`) — wildcards resolve when content permissions register in Stage 6.
+- Tests: 45 passing (83 assertions); argon costs lowered in phpunit.xml for speed. `magna:permissions:list` verified live.
+
+## Notes for next session (Stage 2)
+
+- Follow the Stage 2 prompt in docs/build-plan.md: authentication & API tokens.
+- Sanctum is NOT yet installed — Stage 2 installs it; verify Laravel 13 compatibility of `laravel/sanctum` when requiring.
+- Registration flag: wire to config for now; migrate to the Settings system when Stage 3 builds it.
+- `users.status` exists (`active`/`suspended`) — login must reject suspended users; `User::isActive()` is ready.
+- 2FA per-role enforcement needs a `requires_two_factor` flag on roles (add migration in Stage 2).
