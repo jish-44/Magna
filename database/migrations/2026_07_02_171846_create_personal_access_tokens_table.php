@@ -17,6 +17,8 @@ return new class extends Migration
             $table->text('name');
             $table->string('token', 64)->unique();
             $table->text('abilities')->nullable();
+            $table->string('scope', 20)->default('delivery')->index();
+            $table->unsignedSmallInteger('rate_limit_per_minute')->nullable();
             $table->timestamp('last_used_at')->nullable();
             $table->timestamp('expires_at')->nullable()->index();
             $table->timestamps();

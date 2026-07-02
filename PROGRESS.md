@@ -8,7 +8,7 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
 
 - [x] **Stage 0 — Project scaffold & engineering rig**
 - [x] **Stage 1 — Kernel: users, roles, permissions (RBAC)**
-- [ ] Stage 2 — Kernel: authentication & API tokens
+- [x] **Stage 2 — Kernel: authentication & API tokens**
 - [ ] Stage 3 — Kernel: settings system & audit log
 - [ ] Stage 4 — Plugin system
 - [ ] Stage 5 — Content Engine I: schemas & generated tables
@@ -55,10 +55,23 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
 - The local dev site is intentionally left uninstalled so the installer can be tried at `http://magna-cms.test`.
 - Full spec + **known limitations / future-edit checklist** in [docs/installer.md](docs/installer.md) — revisit at Stage 13 (security pass). Post-review hardening applied: env newline-injection stripped, URL restricted to http/https, installer routes throttled, cached config auto-cleared after .env writes.
 
-## Notes for next session (Stage 2)
+## Stage 2 notes (2026-07-02)
 
-- Follow the Stage 2 prompt in docs/build-plan.md: authentication & API tokens.
-- Sanctum is NOT yet installed — Stage 2 installs it; verify Laravel 13 compatibility of `laravel/sanctum` when requiring.
-- Registration flag: wire to config for now; migrate to the Settings system when Stage 3 builds it.
-- `users.status` exists (`active`/`suspended`) — login must reject suspended users; `User::isActive()` is ready.
-- 2FA per-role enforcement needs a `requires_two_factor` flag on roles (add migration in Stage 2).
+- Sanctum installed; `MagnaToken` extends `PersonalAccessToken` — **must** declare `protected $table = 'personal_access_tokens'` explicitly (Eloquent would otherwise derive `magna_tokens` from the class name).
+- Custom `personal_access_tokens` migration adds `scope` (`delivery`/`management`) and `rate_limit_per_minute` columns.
+- `MagnaApiMiddleware` — stateless bearer-token auth: resolves token, checks expiry, enforces scope, applies per-token rate limiting (`RateLimiter`, 60s window), sets `auth()->setUser()` only when `tokenable instanceof Authenticatable`.
+- `TwoFactorService` — `pragmarx/google2fa` + `bacon/bacon-qr-code` v3; `getQrCodeSvg()` returns inline SVG. Recovery codes: `bin2hex(random_bytes(5))-bin2hex(random_bytes(5))` format, count from `Config::integer('magna.two_factor.recovery_codes', 8)`.
+- `LoginThrottle` — exponential backoff via `Cache` directly (not `RateLimiter`) to support variable decay per hit: `base * 2^(excess_attempts - 1)`, capped at max. Key fingerprint: `sha256(email|ip)`.
+- Session auth routes at `auth/*`; API token routes at `api/v1/tokens`. Views registered as `magna::` namespace (flat — no `auth/` subdirectory); controller references use `magna::login` etc.
+- Blade views only (no JS framework) for login, forgot-password, reset-password, verify-email, two-factor-challenge.
+- `TwoFactorSetupController::disable()` uses `Hash::check()` directly instead of `current_password` validation rule — the rule generates a redirect (not JSON 422) when called on a DELETE request in the Pest test context.
+- PHPStan level 9 clean: all `config()` calls replaced with `Config::string()` / `Config::integer()`; `Cache::get()` results guarded with `is_int()` before arithmetic; `Password` broker status constants passed directly (not `__()`).
+- Tests: 100 passing (263 assertions) — 6 new test files covering Login, PasswordReset, EmailVerification, TwoFactor, ApiToken, SecurityHeaders.
+- Registration is disabled by default (`magna.registration_enabled = false`); wire to the Settings system in Stage 3.
+- CORS: default Laravel config left in place; production hardening deferred to Stage 13 (security pass).
+
+## Notes for next session (Stage 3)
+
+- Follow the Stage 3 prompt in docs/build-plan.md: settings system & audit log.
+- Registration flag currently lives in `config/magna.php`; Stage 3 should migrate it to the Settings system.
+- Stage 3 may need to move/expose `AppSetting` model, settings seeder, and a settings service accessible from all modules.

@@ -10,4 +10,9 @@ use Tests\TestCase;
 // RefreshDatabase's transaction wrapping and cached in-memory connections.
 // New Feature directories must be added to the RefreshDatabase line below.
 pest()->extend(TestCase::class)->in('Feature/Install');
-pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/App', 'Feature/Auth', 'Feature/Users');
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in(
+    'Feature/App',
+    'Feature/Auth',
+    'Feature/Users',
+    'Feature/Api',
+);

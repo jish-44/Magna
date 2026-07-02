@@ -5,10 +5,17 @@ declare(strict_types=1);
 namespace Magna\Auth;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 use Magna\Auth\Console\PermissionsListCommand;
+use Magna\Auth\Http\Middleware\AdminCspMiddleware;
+use Magna\Auth\Http\Middleware\EnsureTwoFactorAuthenticated;
+use Magna\Auth\Http\Middleware\MagnaApiMiddleware;
+use Magna\Auth\Http\Middleware\SecurityHeadersMiddleware;
 use Magna\Users\User;
 
 class AuthServiceProvider extends ServiceProvider
@@ -16,22 +23,25 @@ class AuthServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(PermissionRegistry::class);
+        $this->app->singleton(TwoFactorService::class);
+        $this->app->singleton(LoginThrottle::class);
     }
 
     public function boot(): void
     {
+        Sanctum::usePersonalAccessTokenModel(MagnaToken::class);
+
         $this->registerCorePermissions();
         $this->registerGateResolution();
+        $this->registerRoutes();
+        $this->registerViews();
+        $this->registerMiddlewareAliases();
 
         if ($this->app->runningInConsole()) {
             $this->commands([PermissionsListCommand::class]);
         }
     }
 
-    /**
-     * Permission keys owned by the kernel itself. Plugins register their own
-     * keys through the same registry when they are enabled.
-     */
     private function registerCorePermissions(): void
     {
         $registry = $this->app->make(PermissionRegistry::class);
@@ -46,6 +56,7 @@ class AuthServiceProvider extends ServiceProvider
             'plugins.view' => 'View installed plugins',
             'plugins.manage' => 'Enable, disable, and uninstall plugins',
             'audit.view' => 'View the audit log',
+            'tokens.manage' => 'Create, list, and revoke API tokens',
         ]);
     }
 
@@ -85,5 +96,31 @@ class AuthServiceProvider extends ServiceProvider
 
             return $user->hasPermissionGrant($ability);
         });
+    }
+
+    private function registerRoutes(): void
+    {
+        Route::middleware('web')
+            ->prefix('auth')
+            ->group(__DIR__.'/routes/web.php');
+
+        Route::middleware('api')
+            ->prefix('api/v1')
+            ->group(__DIR__.'/routes/api.php');
+    }
+
+    private function registerViews(): void
+    {
+        $this->loadViewsFrom(__DIR__.'/resources/views', 'magna');
+    }
+
+    private function registerMiddlewareAliases(): void
+    {
+        $router = $this->app->make(Router::class);
+
+        $router->aliasMiddleware('magna.api', MagnaApiMiddleware::class);
+        $router->aliasMiddleware('magna.security-headers', SecurityHeadersMiddleware::class);
+        $router->aliasMiddleware('magna.admin-csp', AdminCspMiddleware::class);
+        $router->aliasMiddleware('magna.two-factor', EnsureTwoFactorAuthenticated::class);
     }
 }
