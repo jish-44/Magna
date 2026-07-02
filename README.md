@@ -1,6 +1,3 @@
-<p align="center">
-  <img src=".github/logo.svg" alt="Magna CMS" width="120">
-</p>
 
 <h1 align="center">Magna CMS</h1>
 
