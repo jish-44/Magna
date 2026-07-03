@@ -9,7 +9,7 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
 - [x] **Stage 0 — Project scaffold & engineering rig**
 - [x] **Stage 1 — Kernel: users, roles, permissions (RBAC)**
 - [x] **Stage 2 — Kernel: authentication & API tokens**
-- [ ] Stage 3 — Kernel: settings system & audit log
+- [x] **Stage 3 — Kernel: settings system & audit log**
 - [ ] Stage 4 — Plugin system
 - [ ] Stage 5 — Content Engine I: schemas & generated tables
 - [ ] Stage 6 — Content Engine II: entries, drafts, revisions, publishing
@@ -70,8 +70,19 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
 - Registration is disabled by default (`magna.registration_enabled = false`); wire to the Settings system in Stage 3.
 - CORS: default Laravel config left in place; production hardening deferred to Stage 13 (security pass).
 
-## Notes for next session (Stage 3)
+## Stage 3 notes (2026-07-03)
 
-- Follow the Stage 3 prompt in docs/build-plan.md: settings system & audit log.
-- Registration flag currently lives in `config/magna.php`; Stage 3 should migrate it to the Settings system.
-- Stage 3 may need to move/expose `AppSetting` model, settings seeder, and a settings service accessible from all modules.
+- Settings system in `src/Magna/Settings/`. Abstract `Settings` base: `static::get()` returns a hydrated `static` instance (property defaults used when no DB row exists); `save()` persists all public properties and busts the tagged cache (`magna-settings` tag). `#[Secret]` attribute marks properties encrypted at rest via `Crypt::encryptString(json_encode($value))` and masked to `'[secret]'` in `toArray(maskSecrets: true)`.
+- `group()` derives from the class name: `GeneralSettings` → `general`, `MailSettings` → `mail`, `StorageSettings` → `storage`.
+- Tagged cache (`Cache::tags(['magna-settings'])`) works with the array driver used in tests. Cache key per group: `magna-settings:{group}`. Invalidated on every `save()`.
+- `RegisterController::guardEnabled()` migrated from `config('magna.registration_enabled')` to `GeneralSettings::get()->registration_enabled`. LoginTest flush cache in the registration guard test to prevent cross-test pollution.
+- PHPStan issues resolved: `new static()` in abstract class needs `@phpstan-consistent-constructor`; `group()` must be `public` (not `protected`) since `SettingsRepository` calls it from outside the class hierarchy.
+- Audit log in `src/Magna/Audit/AuditLog`. Model prevents updates/deletes at the Eloquent level (throws `LogicException`). ULID primary key via `HasUlids`. No `updated_at` column (`const UPDATED_AT = null`). `AuditLog::record()` is the single static factory.
+- Auto-audited events: `auth.login.success` / `auth.login.failure` via `RecordLoginSuccess` / `RecordLoginFailure` listeners (subscribed to `Illuminate\Auth\Events\Login` / `Failed`). `roles.assigned` / `roles.removed` from `HasRoles` trait. `settings.changed` from `SettingsRepository::persist()` with before/after diff (secrets masked). `tokens.created` / `tokens.revoked` from `ApiTokenController`.
+- `magna:audit:export --from --to` command streams JSON lines to stdout in 500-record chunks.
+- Tests: 113 passing (288 assertions) — 2 new test files (SettingsTest 5 tests, AuditLogTest 8 tests).
+
+## Notes for next session (Stage 4)
+
+- Follow the Stage 4 prompt in docs/build-plan.md: plugin system.
+- `SettingsServiceProvider` is registered BEFORE `AuthServiceProvider` in `MagnaServiceProvider` to ensure `GeneralSettings` is resolvable when auth routes run.

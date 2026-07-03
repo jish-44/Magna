@@ -77,7 +77,8 @@ it('brute-force lockout kicks in after max_attempts consecutive failures', funct
 });
 
 it('returns 404 for registration when disabled', function (): void {
-    config(['magna.registration_enabled' => false]);
+    // GeneralSettings::registration_enabled defaults to false — no DB entry needed.
+    Cache::tags(['magna-settings'])->flush();
 
     $this->post(route('auth.register.store'), [
         'name' => 'Test',

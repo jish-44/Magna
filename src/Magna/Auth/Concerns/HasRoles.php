@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Magna\Auth\Concerns;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
+use Magna\Audit\AuditLog;
 use Magna\Auth\PermissionMatcher;
 use Magna\Auth\Role;
 
+/**
+ * @phpstan-require-extends Model
+ */
 trait HasRoles
 {
     /**
@@ -32,6 +38,16 @@ trait HasRoles
 
         $this->roles()->syncWithoutDetaching([$role->getKey()]);
         $this->forgetResolvedGrants();
+
+        $actorId = Auth::id();
+        AuditLog::record(
+            action: 'roles.assigned',
+            actorId: $actorId !== null ? (string) $actorId : null,
+            actorType: $actorId !== null ? 'user' : 'system',
+            ip: request()->ip(),
+            subject: $this,
+            after: ['role' => $role->handle],
+        );
     }
 
     public function removeRole(Role|string $role): void
@@ -40,6 +56,16 @@ trait HasRoles
 
         $this->roles()->detach($role->getKey());
         $this->forgetResolvedGrants();
+
+        $actorId = Auth::id();
+        AuditLog::record(
+            action: 'roles.removed',
+            actorId: $actorId !== null ? (string) $actorId : null,
+            actorType: $actorId !== null ? 'user' : 'system',
+            ip: request()->ip(),
+            subject: $this,
+            before: ['role' => $role->handle],
+        );
     }
 
     public function hasRole(string $handle): bool

@@ -15,4 +15,6 @@ pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in(
     'Feature/Auth',
     'Feature/Users',
     'Feature/Api',
+    'Feature/Settings',
+    'Feature/Audit',
 );

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Magna;
 
 use Illuminate\Support\ServiceProvider;
+use Magna\Audit\AuditServiceProvider;
 use Magna\Auth\AuthServiceProvider;
 use Magna\Install\InstallServiceProvider;
+use Magna\Settings\SettingsServiceProvider;
 
 /**
  * Root service provider for the Magna kernel.
@@ -20,8 +22,10 @@ class MagnaServiceProvider extends ServiceProvider
 
     public function register(): void
     {
+        $this->app->register(SettingsServiceProvider::class);
         $this->app->register(AuthServiceProvider::class);
         $this->app->register(InstallServiceProvider::class);
+        $this->app->register(AuditServiceProvider::class);
     }
 
     public function boot(): void

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Magna\Settings\GeneralSettings;
 use Magna\Users\User;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -52,7 +53,7 @@ class RegisterController extends Controller
 
     private function guardEnabled(): void
     {
-        if (! config('magna.registration_enabled', false)) {
+        if (! GeneralSettings::get()->registration_enabled) {
             throw new NotFoundHttpException;
         }
     }

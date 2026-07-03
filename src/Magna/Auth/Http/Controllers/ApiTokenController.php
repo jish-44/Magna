@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
+use Magna\Audit\AuditLog;
 use Magna\Auth\MagnaToken;
 use Magna\Users\User;
 
@@ -49,6 +50,19 @@ class ApiTokenController extends Controller
             'rate_limit_per_minute' => $request->integer('rate_limit_per_minute') ?: null,
         ])->save();
 
+        $userKey = $user->getKey();
+        AuditLog::record(
+            action: 'tokens.created',
+            actorId: match (true) {
+                is_string($userKey) => $userKey,
+                is_int($userKey) => (string) $userKey,
+                default => null,
+            },
+            actorType: 'user',
+            ip: $request->ip(),
+            after: ['name' => $request->string('name')->toString(), 'scope' => $scope],
+        );
+
         return response()->json([
             'token' => $token->plainTextToken,
             'id' => $token->accessToken->id,
@@ -80,7 +94,7 @@ class ApiTokenController extends Controller
     }
 
     /** Revoke (delete) a specific token. */
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
         /** @var User $user */
         $user = Auth::user();
@@ -90,6 +104,19 @@ class ApiTokenController extends Controller
         if (! $deleted) {
             return response()->json(['message' => 'Token not found.'], 404);
         }
+
+        $userKey2 = $user->getKey();
+        AuditLog::record(
+            action: 'tokens.revoked',
+            actorId: match (true) {
+                is_string($userKey2) => $userKey2,
+                is_int($userKey2) => (string) $userKey2,
+                default => null,
+            },
+            actorType: 'user',
+            ip: $request->ip(),
+            before: ['token_id' => $id],
+        );
 
         return response()->json(['message' => 'Token revoked.']);
     }
