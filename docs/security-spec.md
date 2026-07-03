@@ -39,7 +39,7 @@ PHP cannot sandbox in-process plugins — anyone claiming otherwise is lying, an
 
 **Context for the "PHP sandbox" criticism:** in-process plugins are equally unsandboxed in every major CMS on every runtime — Strapi and Payload load npm plugins into the same Node process with the same full-compromise blast radius; no mainstream CMS on any runtime ships true plugin isolation. PHP's shared-nothing model is actually *more* resilient to plugin memory leaks than a long-lived Node process (a leak dies with the request under PHP-FPM). The genuine exposure is worker mode, addressed below.
 
-**Committed mitigations (roadmap):**
+**Committed mitigations** (full architecture: [plugin-isolation.md](plugin-isolation.md) — layers 1–3 are Stage 4 build requirements: fault-tolerant hook dispatcher with circuit breaker, fatal-recovery shutdown handler + safe mode, queued execution for declared-heavy hooks):
 
 4. **Worker recycling is a documented requirement** of the Octane/FrankenPHP reference deployment (`--max-requests` + memory-threshold restarts): a leaking plugin costs one worker restart, never the site. Lands with the Phase-1 deploy guide.
 5. **"Remote apps" plugin tier (Phase 4+, with the open store):** a second integration tier for untrusted third parties — apps that run as separate services and integrate only via the API, webhooks, and declared UI extension points. Isolated by construction (the Shopify app model). In-process Composer plugins remain the powerful, reviewed tier; remote apps become the safe default for unreviewed third-party integrations. No open-source CMS offers this today.
