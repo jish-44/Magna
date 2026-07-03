@@ -213,7 +213,7 @@ PHPStan level 9. Update PROGRESS.md. composer check + output. Commit.
 Read PROGRESS.md, docs/Magna-v2.md Admin Panel section, docs/plugin-development-guide.md §6. Stage 10 of docs/build-plan.md.
 
 Build:
-1. Install Filament 4 as the Magna admin panel at /admin, wired to Stage 2 session auth (2FA respected), Magna branding, dark mode.
+1. Install Filament 4 as the Magna admin panel at /admin, wired to Stage 2 session auth (2FA respected), Magna branding, dark mode. STYLE IS NOT OPTIONAL: read docs/DESIGN_GUIDE.md fully and implement it as specified — the panel provider color registration incl. the navy gray palette (§9.1), the custom viteTheme with glass panels/scrollbars/fonts (§9.2–9.3), dark as default theme mode, Inter self-hosted. Every resource, widget, and custom page built in this stage and after must conform to the guide; verify the .fi-* CSS hooks against the installed Filament version and adjust selectors (never the design).
 2. Content: a dynamic Filament resource per registered content type — form generated from the schema's FieldTypes (each FieldType maps to a Filament form component; blocks field gets a placeholder builder for Stage 11), table with status/locale/updated columns, filters, and actions: save draft, publish, unpublish, schedule, view revisions (diff view + restore).
 3. Content type builder UI: create/edit DB-defined content types (fields, types, validation, localizable) — writes the same JSON schema format; "Apply changes" runs schema diff with a confirmation screen showing the plan (destructive changes clearly flagged).
 4. Media library: folder tree, grid, upload (drag-drop), detail pane (conversions, usage), picker component used by the media FieldType.
