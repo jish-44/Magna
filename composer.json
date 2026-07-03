@@ -9,6 +9,8 @@
         "php": "^8.3",
         "bacon/bacon-qr-code": "3.0",
         "composer/semver": "^3.4",
+        "enshrined/svg-sanitize": "0.22",
+        "intervention/image": "3.0",
         "laravel/framework": "^13.8",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",

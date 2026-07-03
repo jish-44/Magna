@@ -13,7 +13,7 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
 - [x] **Stage 4 — Plugin system**
 - [x] **Stage 5 — Content Engine I: schemas & generated tables**
 - [x] **Stage 6 — Content Engine II: entries, drafts, revisions, publishing**
-- [ ] Stage 7 — Media
+- [x] **Stage 7 — Media**
 - [ ] Stage 8 — Delivery REST API
 - [ ] Stage 9 — Management API & webhooks
 - [ ] Stage 10 — Admin panel (Filament)
@@ -131,6 +131,47 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
 - Tests: 18 new tests in `Feature/Content/EntryTest.php` covering full workflow, scheduling, restore, revision pruning, events, auto-slug uniqueness, non-draftable types, Gate permission enforcement.
 - Tests: 190 passing (435 assertions); PHPStan 0 errors; Pint clean.
 
-## Notes for next session (Stage 7)
+## Stage 7 notes (2026-07-03)
 
-- Stage 7 — Media: media library, uploads, image processing, storage abstraction.
+- Media module in `src/Magna/Media/`. Key pieces:
+  - **`Media` model** — `magna_media` table (ULID PK, `SoftDeletes`). Stores disk, path, original filename, MIME type, dimensions, alt/title, metadata JSON. Soft-delete is the delete policy (see ADR below).
+  - **`MediaFolder` model** — `magna_media_folders` table (ULID PK, self-referential parent FK). Simple adjacency-list tree.
+  - **`MediaConversion` model** — `magna_media_conversions` table (ULID PK, unique on media_id+preset+format). Append-like: no `updated_at`. Stores per-format (webp/avif) conversion results.
+  - **`ConversionPreset` / `ConversionPresetRegistry`** — named presets (`thumb` 150×150, `card` 600×400, `hero` 1920×1080) + plugin-registerable. Presets registered in `MediaServiceProvider::register()`.
+  - **`MediaIngestor`** — the security-critical upload pipeline (spec §1 rules, non-negotiable):
+    1. Content-sniff MIME via `finfo_open(FILEINFO_MIME_TYPE)` — extension **never** trusted.
+    2. Allowlist: `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/avif`, `image/svg+xml`, `application/pdf`. Anything else → `MimeTypeNotAllowedException`.
+    3. Per-type size guard (20 MB images, 2 MB SVG, 50 MB PDF).
+    4. **Raster images** re-encoded via Intervention/Image 3.x GD driver — creating a new image from raw pixels guarantees EXIF, embedded scripts, and ICC payloads are stripped.
+    5. **SVG** sanitized via `enshrined/svg-sanitize` 0.22 — removes `<script>`, event attributes, `javascript:` hrefs, `<foreignObject>`.
+    6. **PDF and others** — stored as-is (separate disk, no execute permissions).
+    7. Media record created with a pre-allocated ULID (so storage path and DB record share the same ID).
+    8. Queued `ProcessMediaConversionJob` dispatched per registered preset (raster images only).
+  - **`ProcessMediaConversionJob`** — reads original from storage → temp file → Intervention/Image resize → WebP output; AVIF is best-effort (silently skipped if GD lacks libavif). Creates/updates `MediaConversion` records.
+  - **`MediaUrlResolver`** — `publicUrl(Media, ?preset)`: serves WebP conversion when available, falls back to original. `signedUrl(Media, ?preset, ?expiresAt)`: S3/R2/GCS → SDK `temporaryUrl()`; local/public → `URL::temporarySignedRoute('magna.media.serve', ...)`. `srcset(Media)`: builds `w`-descriptor string from all WebP conversions.
+  - **`MediaViewObject`** — read-only view of a Media record with `url()`, `signedUrl()`, `srcset()` accessors. Created via `MediaViewObject::fromModel(Media, MediaUrlResolver)`. Consumed by Stage 8 Delivery API.
+  - **`magna:media:reconvert --preset --id`** — re-queues conversion jobs for existing media; accepts optional preset/ID filters.
+  - **Signed-URL delivery route** — `GET /_media/{media}` (named `magna.media.serve`), validated by `middleware('signed')`; serves the original file for now. Stage 8 adds preset resolution and auth.
+- **Delete policy ADR**: Media uses `SoftDeletes`. On delete, the record gets `deleted_at` but is not hard-removed. Entries continue to reference the ULID; `MediaUrlResolver` can return null for trashed media; the admin UI (Stage 10) can warn. Hard delete is a future explicit action. This approach avoids scanning all entry tables at delete time (which would require the full entry API from Stage 8).
+- **Packages added**: `intervention/image ^3.0`, `enshrined/svg-sanitize ^0.22` (to `require`).
+- **Tests** (13 new in `Feature/Media/MediaIngestTest.php`):
+  - PHP payload disguised as `.jpg` → `MimeTypeNotAllowedException` ✓
+  - EXIF stripped: APP1 segment present in input, absent after re-encode ✓
+  - Valid JPEG ingest: Media record created, dimensions correct, file stored ✓
+  - SVG `<script>` tag sanitized, `<rect>` preserved ✓
+  - Conversion jobs dispatched (Queue::fake × 3 presets) ✓
+  - No conversion jobs for SVG ✓
+  - Conversion job produces WebP `MediaConversion` record with correct dimensions ✓
+  - Signed URL contains `signature=` and `expires=` ✓
+  - Expired signed URL fails validation ✓
+  - Soft delete: `withTrashed()` finds, normal scope excludes ✓
+  - `MediaViewObject::fromModel` exposes metadata and delegates URL ✓
+  - `magna:media:reconvert` queues 6 jobs (2 images × 3 presets, SVG excluded) ✓
+- Tests: **203 passing (472 assertions)**; PHPStan 0 errors; Pint clean.
+
+## Notes for next session (Stage 8)
+
+- Stage 8 — Delivery REST API: read-only content endpoints, media URL resolution, pagination, filtering.
+- `MediaViewObject` is implemented and ready to be wired into entry responses.
+- `magna.media.serve` route exists but needs preset resolution and optional auth middleware (Stage 8).
+- `MediaField::cast()` returns `null` (stores raw ULID); Stage 8 should add response transformation to resolve ULIDs → `MediaViewObject`.
