@@ -18,6 +18,7 @@ use Magna\Auth\Concerns\HasRoles;
 
 /**
  * @property UserStatus $status
+ * @property Carbon|null $email_verified_at
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -30,6 +31,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /** @use HasFactory<UserFactory> */
     use HasFactory;
+
     use HasRoles;
     use HasUlids;
     use Notifiable;

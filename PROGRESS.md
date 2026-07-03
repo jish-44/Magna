@@ -15,7 +15,7 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
 - [x] **Stage 6 — Content Engine II: entries, drafts, revisions, publishing**
 - [x] **Stage 7 — Media**
 - [x] **Stage 8 — Delivery REST API**
-- [ ] Stage 9 — Management API & webhooks
+- [x] **Stage 9 — Management API & webhooks**
 - [ ] Stage 10 — Admin panel (Filament)
 - [ ] Stage 11 — Blocks & the structured block editor
 - [ ] Stage 12 — Caching & performance contract
@@ -193,6 +193,31 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
   - Query count test counted token auth overhead (find token + load user + last_used_at update = 3 queries) against a ≤4 budget → now filters to `magna_*` table queries only.
 - Tests: **240 passing (580 assertions)**; PHPStan 0 errors; Pint clean.
 
-## Notes for next session (Stage 9)
+## Stage 9 notes (2026-07-03)
 
-- Stage 9 — Management API & webhooks: CRUD endpoints for entries/media/schemas, webhook delivery, event subscriptions.
+- Management API in `src/Magna/Management/`. Routes under `POST/GET/PUT/DELETE /api/v1/manage/...`, protected by `magna.api:management` scope middleware.
+- **`EntryController`** — full CRUD + publish/unpublish/draft (create draft of published) + list revisions + restore revision. `content.{type}.view/create/update/publish/delete` permissions per operation. All writes logged to `AuditLog`.
+- **`MediaController`** — multipart file upload (delegates to `MediaIngestor`), show, delete. Fires `MediaCreated`/`MediaDeleted` events for webhook delivery. Permissions: `media.view/upload/delete`.
+- **`FolderController`** — list, create (computes `path` from `parent_id`), delete. Same permission guards.
+- **`ContentTypeController`** — list, create (registers in `SchemaRegistry` + creates `ContentTypeRecord` with `display_name`/`is_database_defined` + runs `SchemaSyncer::syncAll()`), show, update (re-registers + syncs, `?allow_destructive` param). Catches `SchemaException` (not `InvalidArgumentException`).
+- **`SettingController`** — GET returns all groups masked (general/mail/storage). PUT takes `group` + `values`, sets matching public properties, calls `save()`.
+- **`UserController / UserRoleController`** — list/show/update users; assign role (looks up `Role` by name, calls `assignRole`, logs audit).
+- **`WebhookController`** — CRUD for `WebhookSubscription`. `store()` auto-generates a 32-char random secret. `CORE_EVENTS` constant lists all 7 built-in event keys.
+- **`WebhookDeliveryController`** — list deliveries for a subscription; retry dead/failed delivery (resets status=pending + attempts=0, dispatches `DispatchWebhookJob`).
+- **Webhook models**: `WebhookSubscription` + `WebhookDelivery` (both `HasUlids`, migrations with indexed `status` + `subscription_id`).
+- **`DispatchWebhookJob`** — `ShouldQueue`, 6 tries, exponential backoff `[60,120,240,480,960]`. Signs payload with `X-Magna-Signature-256: sha256={hmac_sha256(payload, secret)}` + `X-Magna-Timestamp`. Updates delivery status (delivered/failed/dead). `failed()` hook marks dead.
+- **`WebhookEventSubscriber`** — maps 7 core events (Entry*5, Media*2) to dispatch handlers; fans out to matching active subscriptions, creates `WebhookDelivery` records, dispatches jobs synchronously from the listener.
+- **`WebhookServiceProvider`** — registers `webhooks.manage` permission, subscribes `WebhookEventSubscriber`, calls `getEnabled()` on plugins implementing `RegistersWebhookEvents` (fills the Stage 4 stub).
+- **`ManagementServiceProvider`** — binds all 9 controllers, registers `media.view/upload/delete` permissions, boots routes file.
+- **`MagnaServiceProvider`** updated — now registers `WebhookServiceProvider` and `ManagementServiceProvider` after plugins.
+- **`OpenApiGenerator`** extended — `generateManagement()` returns paths + schema components for all management routes; `generateFull()` merges delivery + management specs into one OpenAPI 3.1 document. PHPStan-correct: all `mixed` access guarded with `is_array()` before `array_merge`.
+- **`User` model** — added `@property Carbon|null $email_verified_at` PHPDoc (base `Authenticatable` typed it as `string|null`; cast makes it Carbon at runtime but PHPStan couldn't see that).
+- **Key bugs fixed**: `ContentTypeRecord::create()` missing `display_name`/`is_database_defined` → 500; `MediaFolder::create()` missing `path` → NOT NULL constraint; `ingest()` named param `alt` not `altText`; `Revision::$created_at` is non-nullable Carbon → use `->` not `?->`; `WebhookSubscription/Delivery::$created_at/$updated_at` same; redundant `is_array()`/`is_string()` checks in SettingController removed; `(int) $request->input()` → `$request->integer()` for PHPStan.
+- **Tests** (57 new across 6 files):
+  - `EntriesTest` — CRUD, publish/unpublish, permission matrix (viewer vs editor), revisions, 401/403/404 guards
+  - `MediaTest` — upload (multipart), show, delete, folder CRUD, 403 for viewer
+  - `ContentTypesTest` — create generates DB table, 409 on duplicate, update syncs new column, 403 for viewer
+  - `SettingsTest` — index masked, update persists, 422 unknown group, 403 without manage permission
+  - `UsersTest` — list paginated, show/update, assign role, 404 unknown role, 403 matrix
+  - `WebhooksTest` — full CRUD, HMAC-SHA256 signature via `Http::assertSent`, dead-letter via `failed()` hook, retry via API resets status + dispatches job, 403 without permission
+- Tests: **297 passing (725 assertions)**; PHPStan 0 errors; Pint clean.
