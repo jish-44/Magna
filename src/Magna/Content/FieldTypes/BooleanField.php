@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Magna\Content\FieldTypes;
 
+use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Schema\Blueprint;
+use Magna\Content\Field;
 
 class BooleanField extends FieldType
 {
@@ -37,5 +40,14 @@ class BooleanField extends FieldType
     public function cast(): ?string
     {
         return 'boolean';
+    }
+
+    public function toFilamentComponent(Field $field): Component
+    {
+        return Toggle::make($field->handle)
+            ->label(ucwords(str_replace('_', ' ', $field->handle)))
+            ->required($field->required)
+            ->onColor('success')
+            ->offColor('danger');
     }
 }

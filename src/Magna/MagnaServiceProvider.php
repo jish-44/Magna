@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Magna;
 
 use Illuminate\Support\ServiceProvider;
+use Magna\Admin\AdminServiceProvider;
 use Magna\Audit\AuditServiceProvider;
 use Magna\Auth\AuthServiceProvider;
 use Magna\Content\ContentServiceProvider;
@@ -38,6 +39,7 @@ class MagnaServiceProvider extends ServiceProvider
         $this->app->register(PluginsServiceProvider::class);
         $this->app->register(WebhookServiceProvider::class);
         $this->app->register(ManagementServiceProvider::class);
+        $this->app->register(AdminServiceProvider::class);
     }
 
     public function boot(): void

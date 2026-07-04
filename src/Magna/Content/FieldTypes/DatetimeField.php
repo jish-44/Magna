@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Magna\Content\FieldTypes;
 
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Schema\Blueprint;
+use Magna\Content\Field;
 
 class DatetimeField extends FieldType
 {
@@ -37,5 +40,14 @@ class DatetimeField extends FieldType
     public function cast(): ?string
     {
         return 'datetime';
+    }
+
+    public function toFilamentComponent(Field $field): Component
+    {
+        return DateTimePicker::make($field->handle)
+            ->label(ucwords(str_replace('_', ' ', $field->handle)))
+            ->required($field->required)
+            ->native(false)
+            ->seconds(false);
     }
 }

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Magna\Content\FieldTypes;
 
+use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Schema\Blueprint;
+use Magna\Content\Field;
 
 class TextareaField extends FieldType
 {
@@ -37,5 +40,13 @@ class TextareaField extends FieldType
     public function cast(): ?string
     {
         return null;
+    }
+
+    public function toFilamentComponent(Field $field): Component
+    {
+        return Textarea::make($field->handle)
+            ->label(ucwords(str_replace('_', ' ', $field->handle)))
+            ->required($field->required)
+            ->rows(4);
     }
 }

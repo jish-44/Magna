@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Magna\Content\FieldTypes;
 
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Schema\Blueprint;
+use Magna\Content\Field;
 
 class NumberField extends FieldType
 {
@@ -53,5 +56,26 @@ class NumberField extends FieldType
     public function cast(): ?string
     {
         return $this->boolOption('integer') ? 'integer' : 'float';
+    }
+
+    public function toFilamentComponent(Field $field): Component
+    {
+        $input = TextInput::make($field->handle)
+            ->label(ucwords(str_replace('_', ' ', $field->handle)))
+            ->required($field->required)
+            ->numeric();
+
+        $min = $this->options['min'] ?? null;
+        $max = $this->options['max'] ?? null;
+
+        if (is_numeric($min)) {
+            $input->minValue((float) $min);
+        }
+
+        if (is_numeric($max)) {
+            $input->maxValue((float) $max);
+        }
+
+        return $input;
     }
 }

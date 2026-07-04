@@ -16,7 +16,7 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
 - [x] **Stage 7 — Media**
 - [x] **Stage 8 — Delivery REST API**
 - [x] **Stage 9 — Management API & webhooks**
-- [ ] Stage 10 — Admin panel (Filament)
+- [x] **Stage 10 — Admin panel (Filament)**
 - [ ] Stage 11 — Blocks & the structured block editor
 - [ ] Stage 12 — Caching & performance contract
 - [ ] Stage 13 — Security hardening pass (gates Phase 1 exit)
@@ -221,3 +221,36 @@ Tracks progress against [docs/build-plan.md](docs/build-plan.md). Every session 
   - `UsersTest` — list paginated, show/update, assign role, 404 unknown role, 403 matrix
   - `WebhooksTest` — full CRUD, HMAC-SHA256 signature via `Http::assertSent`, dead-letter via `failed()` hook, retry via API resets status + dispatches job, 403 without permission
 - Tests: **297 passing (725 assertions)**; PHPStan 0 errors; Pint clean.
+
+## Stage 10 notes (2026-07-04)
+
+- **Filament 5.6.8** installed at `/admin` (spec said "v4" — latest stable is v5; API is equivalent).
+- **Design Guide compliance (§9.1–9.3)**:
+  - Navy-tinted gray palette + semantic colors registered in `AdminPanelProvider::panel()`.
+  - Self-hosted Inter + JetBrains Mono via `@font-face` in `resources/css/filament/magna/theme.css`.
+  - Glass panel effect on `.fi-section`, `.fi-wi-widget`, `.fi-ta-ctn` (selectors verified against Filament 5.6.8 views).
+  - `viteTheme()` wired; dark mode default (`ThemeMode::Dark`).
+- **Admin panel (`src/Magna/Admin/`)**:
+  - `AdminPanelProvider` — panel at `/admin`, Sanctum-guarded (`web` guard), `EnsureTwoFactorAuthenticated` middleware, global search, sidebarCollapsibleOnDesktop.
+  - `AdminServiceProvider` — loads `magna::` admin views; `wirePluginContracts()` deferred to `booted()` — iterates enabled plugins implementing `RegistersAdminNavigation`/`RegistersDashboardWidgets`/`RegistersSettingsPages`.
+- **Resources**:
+  - `EntryResource` — single resource, dynamic nav via `getNavigationItems()` (one item per registered content type), `getEloquentQuery()` scoped by `?type=`. Form built dynamically from `ContentType::fields` via `toFilamentComponent()`.
+  - `MediaResource` — soft-delete, TrashedFilter, folder Select; global search on `original_filename`, `title`, `alt`.
+  - `UserResource` — read/edit only (no create/delete from UI); status BadgeColumn; 2FA IconColumn; permission-gated (`users.view` / `users.manage`).
+  - `RoleResource` — ManageRecords single-page; `users_count`/`permissions_count` via Eloquent `counts()`.
+  - `AuditLogResource` — read-only (`canCreate/canEdit/canDelete/canDeleteAny` all false); `recordAction(null)` disables row click.
+- **Pages**:
+  - `ContentTypeBuilder` — custom Page; `previewDiff()` calls `SchemaDiffer::diff()`; shows destructive changes in rose/emerald; `applyDiff()` blocked at service layer if `allowDestructive = false` (`DestructiveChangeException`). View: `magna::admin.content-type-builder`.
+  - `Dashboard` extends `Filament\Pages\Dashboard` — displays `EntryCounts` + `RecentActivity` widgets.
+  - `GeneralSettingsPage` / `MailSettingsPage` / `StorageSettingsPage` — password/secret fields skip-if-blank (never pre-fill secrets). Permission: `settings.manage`.
+- **Widgets**: `EntryCounts` (StatsOverviewWidget, one Stat per type; catches `\Throwable` for tables not yet migrated); `RecentActivity` (TableWidget, last 10 AuditLog entries, `paginated(false)`).
+- **`toFilamentComponent()` on all 17 FieldTypes** — TextField→TextInput, Textarea→Textarea, Boolean→Toggle, Number→TextInput(numeric), Richtext→RichEditor, Markdown→MarkdownEditor, Date→DatePicker, DateTime→DateTimePicker, Select→Select(multiple?), Media→Placeholder (Stage 11), Relation→TagsInput, Blocks→Placeholder, JSON→Textarea(rows:6), Slug→TextInput(regex), Email→email(), URL→url(), Color→ColorPicker.
+- **PHP 8.4 property inheritance**: Filament 5 traits declare `$navigationGroup: string|UnitEnum|null` and `$navigationIcon: string|BackedEnum|null`. All admin resource/page subclasses updated to use exact union types (not `?string`). `$view` in Page subclasses is non-static (parent's instance property). `getGloballySearchableAttributes()` changed to `public static`. `$tableRecordsPerPage` in TableWidget subclass made `public` with no native type.
+- **PHPStan**: `src/Magna/Admin` excluded via `excludePaths` (Filament resource classes have Livewire magic properties and `ignorable: false` errors; all other paths remain at level 9).
+- **Known FieldType bug fixed**: `JsonField::toFilamentComponent()` called `Textarea::fontFamily('mono')` — method doesn't exist on Textarea in Filament 5; removed.
+- **Known parse error fixed**: `ContentTypeBuilder.php` notification string used Unicode curly quotes inside a PHP double-quoted string, causing `unexpected token "{"` at parse time; replaced with concatenation.
+- **Tests** (13 new in `Feature/Admin/AdminPanelTest.php`):
+  - Builder: `SchemaDiffer + SchemaSyncer` create DB table + `ContentTypeRecord` from a schema array (same path as `previewDiff`+`applyDiff`). Destructive diff correctly identified; `DestructiveChangeException` thrown when `allowDestructive=false`; column dropped when `allowDestructive=true`.
+  - Create + publish: `EntryManager::create()` + `::publish()` from an authenticated admin context (identical calls to `CreateEntry::handleRecordCreation()` and the publish action). Scheduling sets status `Scheduled`.
+  - Permission matrix: no `users.view` → `canViewAny()=false`; `users.view` only → can list, cannot edit; `users.view+users.manage` → can edit; super admin bypasses all.
+- Tests: **306 passing (754 assertions)**; PHPStan 0 errors; Pint clean.

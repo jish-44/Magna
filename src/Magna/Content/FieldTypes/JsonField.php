@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Magna\Content\FieldTypes;
 
+use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Schema\Blueprint;
+use Magna\Content\Field;
 
 class JsonField extends FieldType
 {
@@ -37,5 +40,15 @@ class JsonField extends FieldType
     public function cast(): ?string
     {
         return 'array';
+    }
+
+    public function toFilamentComponent(Field $field): Component
+    {
+        return Textarea::make($field->handle)
+            ->label(ucwords(str_replace('_', ' ', $field->handle)))
+            ->required($field->required)
+            ->rows(6)
+            ->hint('JSON')
+            ->columnSpanFull();
     }
 }

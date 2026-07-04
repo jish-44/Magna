@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Magna\Content\FieldTypes;
 
+use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Schema\Blueprint;
+use Magna\Content\Field;
 
 class SelectField extends FieldType
 {
@@ -58,5 +61,31 @@ class SelectField extends FieldType
     public function cast(): ?string
     {
         return $this->boolOption('multiple') ? 'array' : null;
+    }
+
+    public function toFilamentComponent(Field $field): Component
+    {
+        $rawOptions = $this->options['options'] ?? [];
+        $selectOptions = [];
+
+        if (is_array($rawOptions)) {
+            foreach ($rawOptions as $v) {
+                if (is_scalar($v)) {
+                    $str = (string) $v;
+                    $selectOptions[$str] = ucwords(str_replace(['_', '-'], ' ', $str));
+                }
+            }
+        }
+
+        $select = Select::make($field->handle)
+            ->label(ucwords(str_replace('_', ' ', $field->handle)))
+            ->required($field->required)
+            ->options($selectOptions);
+
+        if ($this->boolOption('multiple')) {
+            $select->multiple();
+        }
+
+        return $select;
     }
 }

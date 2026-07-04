@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Magna\Content\FieldTypes;
 
+use Filament\Forms\Components\Placeholder;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Schema\Blueprint;
+use Magna\Content\Field;
 
 class MediaField extends FieldType
 {
@@ -45,5 +48,14 @@ class MediaField extends FieldType
     public function cast(): ?string
     {
         return $this->boolOption('multiple') ? 'array' : null;
+    }
+
+    public function toFilamentComponent(Field $field): Component
+    {
+        // Full media picker component is implemented in Stage 11.
+        // For now, surface a placeholder that explains the intent.
+        return Placeholder::make($field->handle)
+            ->label(ucwords(str_replace('_', ' ', $field->handle)))
+            ->content('Media picker — available in Stage 11');
     }
 }

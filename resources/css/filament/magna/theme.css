@@ -1,0 +1,80 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../src/Magna/**/*.blade.php';
+
+/* Self-hosted Inter — woff2 files live in resources/fonts/inter/ */
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('/fonts/inter/inter-var.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193,
+        U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Self-hosted JetBrains Mono — for IDs, API paths, code */
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2') format('woff2');
+}
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+    --radius-xl: 0.75rem;
+    --radius-2xl: 1rem;
+}
+
+/* ── Glass panels ─────────────────────────────────────────────────────────── */
+/* Applied to Filament sections, widgets, and table containers in dark mode.  */
+/* Selectors verified against filament/filament v5.6.8.                       */
+
+.dark .fi-section,
+.dark .fi-wi-widget,
+.dark .fi-ta-ctn,
+.magna-glass {
+    background: linear-gradient(160deg, rgba(20, 27, 45, 0.70), rgba(13, 18, 30, 0.80));
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 1rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Shell surfaces ───────────────────────────────────────────────────────── */
+.dark .fi-sidebar { background: #0d1220; }
+.dark .fi-topbar  { background: #0d1220; }
+.dark .fi-body    { background: #0b0f19; }
+
+/* ── Scrollbars ───────────────────────────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+*::-webkit-scrollbar              { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb        { background: #334155; border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover  { background: #475569; }
+
+/* ── Focus ring (sky, visible on both violet controls and navy surfaces) ──── */
+:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+
+/* ── Live-status pulse animation ─────────────────────────────────────────── */
+@keyframes magna-ping {
+    75%, 100% { transform: scale(2); opacity: 0; }
+}
+.magna-live-dot { position: relative; }
+.magna-live-dot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: inherit;
+    animation: magna-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* ── Respect prefers-reduced-motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .magna-live-dot::after { animation: none; }
+    * { transition-duration: 0ms !important; }
+}

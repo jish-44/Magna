@@ -1,0 +1,117 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Magna\Admin;
+
+use Filament\Facades\Filament;
+use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
+use Illuminate\Support\ServiceProvider;
+use Magna\Contracts\RegistersAdminNavigation;
+use Magna\Contracts\RegistersDashboardWidgets;
+use Magna\Contracts\RegistersSettingsPages;
+use Magna\Plugins\PluginManager;
+
+class AdminServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->register(AdminPanelProvider::class);
+    }
+
+    public function boot(): void
+    {
+        // Merge admin views into the existing magna:: namespace.
+        $this->loadViewsFrom(__DIR__.'/resources/views', 'magna');
+
+        // Wire plugin contracts after all providers have booted.
+        $this->app->booted(function (): void {
+            $this->wirePluginContracts();
+        });
+    }
+
+    private function wirePluginContracts(): void
+    {
+        if (! $this->app->bound(PluginManager::class)) {
+            return;
+        }
+
+        /** @var PluginManager $manager */
+        $manager = $this->app->make(PluginManager::class);
+
+        $navGroups = [];
+        $widgets = [];
+        $settingPages = [];
+
+        foreach ($manager->getEnabled() as $plugin) {
+            // RegistersAdminNavigation → sidebar nav group
+            if ($plugin instanceof RegistersAdminNavigation) {
+                $group = $plugin->adminNavigation();
+
+                $filamentItems = [];
+                foreach ($group->getItems() as $item) {
+                    $navItem = NavigationItem::make($item->label);
+
+                    if ($item->resourceClass !== null) {
+                        $navItem->url(
+                            fn (): string => $item->resourceClass::getUrl(),
+                        );
+                    } elseif ($item->route !== null) {
+                        $navItem->url(route($item->route));
+                    }
+
+                    $perm = $item->getRequiredPermission();
+                    if ($perm !== null) {
+                        $navItem->isHidden(fn (): bool => ! auth()->user()?->can($perm));
+                    }
+
+                    $filamentItems[] = $navItem;
+                }
+
+                $navGroups[] = NavigationGroup::make($group->label)
+                    ->icon($group->icon)
+                    ->items($filamentItems);
+            }
+
+            // RegistersDashboardWidgets → injected into panel widget list
+            if ($plugin instanceof RegistersDashboardWidgets) {
+                foreach ($plugin->dashboardWidgets() as $widgetClass) {
+                    $widgets[] = $widgetClass;
+                }
+            }
+
+            // RegistersSettingsPages → injected into panel page list
+            if ($plugin instanceof RegistersSettingsPages) {
+                foreach ($plugin->settingsPages() as $pageClass) {
+                    $settingPages[] = $pageClass;
+                }
+            }
+        }
+
+        if ($navGroups !== [] || $widgets !== [] || $settingPages !== []) {
+            $panel = Filament::getPanel('magna');
+
+            if ($navGroups !== []) {
+                $panel->navigationGroups(array_merge(
+                    $panel->getNavigationGroups(),
+                    $navGroups,
+                ));
+            }
+
+            if ($widgets !== []) {
+                $panel->widgets(array_merge(
+                    $panel->getWidgets(),
+                    $widgets,
+                ));
+            }
+
+            if ($settingPages !== []) {
+                $panel->pages(array_merge(
+                    $panel->getPages(),
+                    $settingPages,
+                ));
+            }
+        }
+    }
+}
