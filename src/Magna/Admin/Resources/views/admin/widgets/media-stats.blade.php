@@ -42,14 +42,6 @@
 
 <div class="w-full bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6 md:p-8">
 
-    {{-- Header --}}
-    <div class="flex items-center justify-between mb-8">
-        <div>
-            <h2 class="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Media Library</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage and monitor your digital assets allocation</p>
-        </div>
-    </div>
-
     {{-- Live counters --}}
     <div class="grid grid-cols-1 {{ $hasDisk ? 'md:grid-cols-3' : 'md:grid-cols-2' }} gap-4 mb-6">
         <div class="bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/30 rounded-2xl p-4">

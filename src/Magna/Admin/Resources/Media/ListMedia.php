@@ -30,10 +30,26 @@ class ListMedia extends ListRecords
     /** Active category filter (images|pdf|video|others) from the stats widget. */
     public ?string $categoryFilter = null;
 
+    public function getHeading(): string
+    {
+        return 'Media Library';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Manage and monitor your digital assets allocation';
+    }
+
     /** @return array<class-string> */
     protected function getHeaderWidgets(): array
     {
         return [MediaStatsWidget::class];
+    }
+
+    /** Single column so the stats widget spans the full content width. */
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return 1;
     }
 
     /** Set by the MediaStatsWidget when a category card is clicked. */
