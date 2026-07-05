@@ -10,7 +10,9 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\On;
 use Magna\Admin\Resources\MediaResource;
 use Magna\Admin\Widgets\MediaStatsWidget;
 use Magna\Media\Media;
@@ -25,10 +27,39 @@ class ListMedia extends ListRecords
     /** Live-search value wired from the blade search input. */
     public string $gallerySearch = '';
 
+    /** Active category filter (images|pdf|video|others) from the stats widget. */
+    public ?string $categoryFilter = null;
+
     /** @return array<class-string> */
     protected function getHeaderWidgets(): array
     {
         return [MediaStatsWidget::class];
+    }
+
+    /** Set by the MediaStatsWidget when a category card is clicked. */
+    #[On('media-category-selected')]
+    public function onCategorySelected(?string $category): void
+    {
+        $this->categoryFilter = $category;
+        $this->resetPage('mpage');
+    }
+
+    /**
+     * Constrain a media query to a mime-type category.
+     *
+     * @param  Builder<Media>  $query
+     */
+    private function applyCategory(Builder $query): void
+    {
+        match ($this->categoryFilter) {
+            'images' => $query->where('mime_type', 'like', 'image/%'),
+            'pdf' => $query->where('mime_type', 'application/pdf'),
+            'video' => $query->where('mime_type', 'like', 'video/%'),
+            'others' => $query->where('mime_type', 'not like', 'image/%')
+                ->where('mime_type', '!=', 'application/pdf')
+                ->where('mime_type', 'not like', 'video/%'),
+            default => null,
+        };
     }
 
     /** @return array<int, Action> */
@@ -91,9 +122,12 @@ class ListMedia extends ListRecords
         $query = Media::query()
             ->withoutTrashed()
             ->latest()
-            ->when($this->gallerySearch !== '', fn ($q) => $q->where('original_filename', 'like', "%{$this->gallerySearch}%")
+            ->when($this->gallerySearch !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                ->where('original_filename', 'like', "%{$this->gallerySearch}%")
                 ->orWhere('title', 'like', "%{$this->gallerySearch}%")
-            );
+            ));
+
+        $this->applyCategory($query);
 
         return [
             'galleryItems' => $query->paginate(24, ['*'], 'mpage'),

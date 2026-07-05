@@ -6,7 +6,6 @@ namespace Magna\Admin\Widgets;
 
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\DB;
-use Magna\Media\Media;
 
 class MediaStatsWidget extends Widget
 {
@@ -16,60 +15,94 @@ class MediaStatsWidget extends Widget
 
     protected string $view = 'magna::admin.widgets.media-stats';
 
+    /**
+     * The currently selected category card (null = show everything). Drives the
+     * active-card highlight and, via the dispatched event, the gallery filter on
+     * the ListMedia page.
+     */
+    public ?string $activeCategory = null;
+
+    public function selectCategory(string $category): void
+    {
+        // Toggle: clicking the active card again clears the filter.
+        $this->activeCategory = $this->activeCategory === $category ? null : $category;
+
+        $this->dispatch('media-category-selected', category: $this->activeCategory);
+    }
+
     /** @return array<string, mixed> */
     protected function getViewData(): array
     {
-        // Group by mime_type prefix in PHP so the query is portable across
-        // SQLite (dev) and MySQL (production) — SUBSTRING_INDEX is MySQL-only.
         $rows = DB::table('magna_media')
             ->whereNull('deleted_at')
-            ->select('mime_type', DB::raw('COUNT(*) as count'), DB::raw('SUM(size) as total_bytes'))
+            ->select('mime_type', DB::raw('COUNT(*) as c'), DB::raw('SUM(size) as b'))
             ->groupBy('mime_type')
             ->get();
 
-        /** @var array<string, array{count: int, bytes: int}> $grouped */
-        $grouped = [];
+        // Four fixed buckets, in display order.
+        $categories = [
+            'images' => ['label' => 'Images', 'count' => 0, 'bytes' => 0],
+            'pdf' => ['label' => 'PDF Documents', 'count' => 0, 'bytes' => 0],
+            'video' => ['label' => 'Videos', 'count' => 0, 'bytes' => 0],
+            'others' => ['label' => 'Others', 'count' => 0, 'bytes' => 0],
+        ];
+
         foreach ($rows as $row) {
-            $cat = strstr((string) $row->mime_type, '/', before_needle: true) ?: (string) $row->mime_type;
-            if (! isset($grouped[$cat])) {
-                $grouped[$cat] = ['count' => 0, 'bytes' => 0];
+            $mime = (string) $row->mime_type;
+            $key = match (true) {
+                str_starts_with($mime, 'image/') => 'images',
+                $mime === 'application/pdf' => 'pdf',
+                str_starts_with($mime, 'video/') => 'video',
+                default => 'others',
+            };
+            $categories[$key]['count'] += (int) $row->c;
+            $categories[$key]['bytes'] += (int) $row->b;
+        }
+
+        $totalBytes = (int) array_sum(array_column($categories, 'bytes'));
+        $totalCount = (int) array_sum(array_column($categories, 'count'));
+
+        // Percentage of used space per bucket, normalised to sum to 100%.
+        foreach ($categories as $key => $cat) {
+            $categories[$key]['pct'] = $totalBytes > 0 ? (int) round($cat['bytes'] / $totalBytes * 100) : 0;
+            $categories[$key]['sizeText'] = self::formatBytes($cat['bytes']);
+        }
+
+        $sumPct = (int) array_sum(array_column($categories, 'pct'));
+        if ($sumPct !== 100 && $totalBytes > 0) {
+            $largest = array_key_first($categories);
+            foreach ($categories as $key => $cat) {
+                if ($cat['bytes'] > $categories[$largest]['bytes']) {
+                    $largest = $key;
+                }
             }
-            $grouped[$cat]['count'] += (int) $row->count;
-            $grouped[$cat]['bytes'] += (int) $row->total_bytes;
+            $categories[$largest]['pct'] += 100 - $sumPct;
         }
 
-        arsort($grouped);
+        // Server disk figures (bytes). false when unavailable (e.g. restricted host).
+        $diskTotal = @disk_total_space(base_path());
+        $diskFree = @disk_free_space(base_path());
+        $hasDisk = is_float($diskTotal) && is_float($diskFree) && $diskTotal > 0;
 
-        $grandTotal = array_sum(array_column($grouped, 'count'));
-        $grandBytes = array_sum(array_column($grouped, 'bytes'));
-
-        $categories = [];
-        foreach ($grouped as $cat => $data) {
-            $categories[] = [
-                'label' => ucfirst($cat),
-                'raw' => $cat,
-                'count' => $data['count'],
-                'bytes' => $data['bytes'],
-                'pct' => $grandTotal > 0 ? round(($data['count'] / $grandTotal) * 100, 1) : 0,
-                'bytesPct' => $grandBytes > 0 ? round(($data['bytes'] / $grandBytes) * 100, 1) : 0,
-                'color' => self::colorFor($cat),
-            ];
-        }
-
-        $trashed = Media::onlyTrashed()->count();
-
-        return compact('categories', 'grandTotal', 'grandBytes', 'trashed');
+        return [
+            'categories' => $categories,
+            'activeCategory' => $this->activeCategory,
+            'totalUsedText' => self::formatBytes($totalBytes),
+            'totalCount' => $totalCount,
+            'hasDisk' => $hasDisk,
+            'capacityText' => $hasDisk ? self::formatBytes($diskTotal) : null,
+            'availableText' => $hasDisk ? self::formatBytes($diskFree) : null,
+            'utilizationPct' => $hasDisk ? number_format($totalBytes / $diskTotal * 100, 2) : null,
+        ];
     }
 
-    private static function colorFor(string $category): string
+    private static function formatBytes(int|float $bytes): string
     {
-        return match ($category) {
-            'image' => '#6366f1',
-            'video' => '#f59e0b',
-            'audio' => '#10b981',
-            'application' => '#0ea5e9',
-            'text' => '#8b5cf6',
-            default => '#64748b',
+        return match (true) {
+            $bytes >= 1_073_741_824 => number_format($bytes / 1_073_741_824, 2).' GB',
+            $bytes >= 1_048_576 => number_format($bytes / 1_048_576, 1).' MB',
+            $bytes >= 1_024 => number_format($bytes / 1_024, 0).' KB',
+            default => number_format($bytes).' B',
         };
     }
 }
