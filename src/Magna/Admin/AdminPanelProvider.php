@@ -192,48 +192,76 @@ class AdminPanelProvider extends PanelProvider
                 fn (): HtmlString => new HtmlString(<<<'HTML'
                     <script>
                     (function () {
+                        // Filament overrides custom section ids, so we map sidebar
+                        // links to sections by their heading text instead.
+                        var SLUGS = {
+                            general: 'General', localization: 'Localization', content: 'Content',
+                            media: 'Media', email: 'Email', storage: 'Storage',
+                            urls: 'URLs & Frontend', security: 'Security'
+                        };
+                        var HEADINGS = {};
+                        Object.keys(SLUGS).forEach(function (s) { HEADINGS[SLUGS[s].toLowerCase()] = s; });
                         var observer = null;
-                        function hrefId(link) {
-                            var m = (link.getAttribute('href') || '').match(/#(settings-[\w-]+)/);
-                            return m ? m[1] : null;
+
+                        function norm(t) { return (t || '').replace(/\s+/g, ' ').trim(); }
+
+                        function sectionForSlug(slug) {
+                            var heading = SLUGS[slug];
+                            if (! heading) return null;
+                            var secs = document.querySelectorAll('.fi-section');
+                            for (var i = 0; i < secs.length; i++) {
+                                var h = secs[i].querySelector('.fi-section-header-heading');
+                                if (h && norm(h.textContent) === heading) return secs[i];
+                            }
+                            return null;
                         }
+
                         function setup() {
                             var links = Array.prototype.slice.call(document.querySelectorAll('a[href*="#settings-"]'));
+                            var linkBySlug = {};
                             links.forEach(function (link) {
-                                var id = hrefId(link);
-                                if (! id || link.dataset.magnaBound) return;
+                                var m = (link.getAttribute('href') || '').match(/#settings-([\w-]+)/);
+                                if (! m) return;
+                                var slug = m[1];
+                                linkBySlug[slug] = link;
+                                if (link.dataset.magnaBound) return;
                                 link.dataset.magnaBound = '1';
                                 link.addEventListener('click', function (e) {
-                                    var el = document.getElementById(id);
+                                    var el = sectionForSlug(slug);
                                     if (! el) return; // not on the settings page — let it navigate
                                     e.preventDefault();
                                     e.stopImmediatePropagation();
                                     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    history.replaceState(null, '', '#' + id);
+                                    history.replaceState(null, '', '#settings-' + slug);
                                 }, true);
                             });
 
                             if (observer) { observer.disconnect(); observer = null; }
-                            var sections = Array.prototype.slice.call(document.querySelectorAll('[id^="settings-"]'));
-                            if (! sections.length) return;
 
-                            var map = {};
-                            links.forEach(function (link) { var id = hrefId(link); if (id) map[id] = link; });
+                            var sections = Array.prototype.slice.call(document.querySelectorAll('.fi-section')).filter(function (s) {
+                                var h = s.querySelector('.fi-section-header-heading');
+                                return h && HEADINGS[norm(h.textContent).toLowerCase()];
+                            });
+                            if (! sections.length) return;
 
                             observer = new IntersectionObserver(function (entries) {
                                 entries.forEach(function (entry) {
                                     if (! entry.isIntersecting) return;
-                                    Object.keys(map).forEach(function (k) { map[k].classList.remove('magna-nav-active'); });
-                                    if (map[entry.target.id]) map[entry.target.id].classList.add('magna-nav-active');
+                                    var h = entry.target.querySelector('.fi-section-header-heading');
+                                    var slug = h ? HEADINGS[norm(h.textContent).toLowerCase()] : null;
+                                    if (! slug) return;
+                                    Object.keys(linkBySlug).forEach(function (k) { linkBySlug[k].classList.remove('magna-nav-active'); });
+                                    if (linkBySlug[slug]) linkBySlug[slug].classList.add('magna-nav-active');
                                 });
-                            }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+                            }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
                             sections.forEach(function (s) { observer.observe(s); });
 
-                            if (window.location.hash) {
-                                var target = document.querySelector(window.location.hash);
-                                if (target) requestAnimationFrame(function () { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+                            if (window.location.hash.indexOf('#settings-') === 0) {
+                                var el = sectionForSlug(window.location.hash.replace('#settings-', ''));
+                                if (el) requestAnimationFrame(function () { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
                             }
                         }
+
                         document.addEventListener('DOMContentLoaded', setup);
                         document.addEventListener('livewire:navigated', setup);
                     })();
