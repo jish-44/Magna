@@ -239,31 +239,45 @@ class AdminPanelProvider extends PanelProvider
                             }
                         }
 
-                        function setup() {
-                            var links = Array.prototype.slice.call(document.querySelectorAll('a[href*="#settings-"]'));
-                            var linkBySlug = {};
-                            links.forEach(function (link) {
-                                var m = (link.getAttribute('href') || '').match(/#settings-([\w-]+)/);
-                                if (! m) return;
-                                var slug = m[1];
-                                linkBySlug[slug] = link;
-                                // Strip Livewire SPA navigation so clicking a
-                                // section link scrolls in place instead of
-                                // re-rendering the page. Cross-page clicks fall
-                                // back to a normal browser navigation + scroll.
-                                link.removeAttribute('wire:navigate');
-                                if (link.dataset.magnaBound) return;
-                                link.dataset.magnaBound = '1';
-                                link.addEventListener('click', function (e) {
-                                    var el = sectionForSlug(slug);
-                                    if (! el) return; // not on the settings page — let it navigate
-                                    e.preventDefault();
-                                    e.stopImmediatePropagation();
-                                    scrollToSection(el);
-                                    history.replaceState(null, '', '#settings-' + slug);
-                                }, true);
+                        // Livewire's wire:navigate is a document capture-phase
+                        // handler that fires before ours and doesn't stop the
+                        // event, so it would navigate even when we scroll. The
+                        // only reliable defense is to keep the attribute off the
+                        // section links entirely — and re-strip it the instant
+                        // Livewire re-adds it while morphing the sidebar (which is
+                        // exactly what happens after an "All Settings" click).
+                        function stripNavigate() {
+                            document.querySelectorAll('a[href*="#settings-"]').forEach(function (l) {
+                                l.removeAttribute('wire:navigate');
+                                l.removeAttribute('wire:navigate.hover');
                             });
+                        }
+                        stripNavigate();
+                        // Observe the whole body so the guard survives Livewire
+                        // replacing the sidebar element on navigation.
+                        new MutationObserver(stripNavigate).observe(document.body, {
+                            childList: true, subtree: true, attributes: true,
+                            attributeFilter: ['wire:navigate', 'wire:navigate.hover']
+                        });
 
+                        // Delegated capture-phase click interceptor for the
+                        // in-page smooth scroll (and to cancel the native hash
+                        // jump). With wire:navigate stripped above, no SPA
+                        // navigation fires, so there is no page reload.
+                        document.addEventListener('click', function (e) {
+                            var link = e.target.closest ? e.target.closest('a[href*="#settings-"]') : null;
+                            if (! link) return;
+                            var m = (link.getAttribute('href') || '').match(/#settings-([\w-]+)/);
+                            if (! m) return;
+                            var el = sectionForSlug(m[1]);
+                            if (! el) return; // section not on this page — allow normal navigation
+                            e.preventDefault();
+                            e.stopImmediatePropagation();
+                            scrollToSection(el);
+                            history.replaceState(null, '', '#settings-' + m[1]);
+                        }, true);
+
+                        function setupSpy() {
                             if (observer) { observer.disconnect(); observer = null; }
 
                             var sections = Array.prototype.slice.call(document.querySelectorAll('.fi-section')).filter(function (s) {
@@ -271,6 +285,12 @@ class AdminPanelProvider extends PanelProvider
                                 return h && HEADINGS[norm(h.textContent).toLowerCase()];
                             });
                             if (! sections.length) return;
+
+                            var linkBySlug = {};
+                            Array.prototype.slice.call(document.querySelectorAll('a[href*="#settings-"]')).forEach(function (link) {
+                                var m = (link.getAttribute('href') || '').match(/#settings-([\w-]+)/);
+                                if (m) linkBySlug[m[1]] = link;
+                            });
 
                             observer = new IntersectionObserver(function (entries) {
                                 entries.forEach(function (entry) {
@@ -290,8 +310,8 @@ class AdminPanelProvider extends PanelProvider
                             }
                         }
 
-                        document.addEventListener('DOMContentLoaded', setup);
-                        document.addEventListener('livewire:navigated', setup);
+                        document.addEventListener('DOMContentLoaded', setupSpy);
+                        document.addEventListener('livewire:navigated', setupSpy);
                     })();
                     </script>
                 HTML),
