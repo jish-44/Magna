@@ -5,49 +5,41 @@
 
     <div
         x-data="{
-            active: '{{ $this->sections()[0]['id'] ?? '' }}',
-            init() {
-                const sections = Array.from(document.querySelectorAll('[id^=&quot;settings-&quot;]'));
-                if (! sections.length) return;
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach((entry) => {
-                        if (entry.isIntersecting) {
-                            this.active = entry.target.id.replace('settings-', '');
-                        }
-                    });
-                }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
-                sections.forEach((el) => observer.observe(el));
+            q: '',
+            filter() {
+                const term = this.q.trim().toLowerCase();
+                document.querySelectorAll('[id^=settings-]').forEach((section) => {
+                    const match = term === '' || section.textContent.toLowerCase().includes(term);
+                    section.style.display = match ? '' : 'none';
+                });
             },
-            go(id) {
-                const el = document.getElementById('settings-' + id);
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                this.active = id;
+            init() {
+                const scrollToHash = () => {
+                    if (! window.location.hash) return;
+                    const el = document.querySelector(window.location.hash);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                };
+                this.$nextTick(scrollToHash);
+                window.addEventListener('hashchange', scrollToHash);
             },
         }"
-        class="grid grid-cols-1 gap-8 lg:grid-cols-[220px_minmax(0,1fr)]"
     >
-        {{-- Sticky section sub-navigation --}}
-        <aside class="hidden lg:block">
-            <nav class="sticky top-24 space-y-0.5">
-                @foreach ($this->sections() as $section)
-                    <a
-                        href="#settings-{{ $section['id'] }}"
-                        @click.prevent="go('{{ $section['id'] }}')"
-                        :class="active === '{{ $section['id'] }}'
-                            ? 'bg-primary-500/10 text-primary-500 font-semibold'
-                            : 'text-gray-500 hover:bg-white/5 hover:text-gray-700 dark:hover:text-gray-200'"
-                        class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition"
-                    >
-                        @svg($section['icon'], 'h-4 w-4 shrink-0')
-                        <span>{{ $section['label'] }}</span>
-                    </a>
-                @endforeach
-            </nav>
-        </aside>
-
-        {{-- Scrollable settings form --}}
-        <div>
-            {{ $this->form }}
+        {{-- Settings search --}}
+        <div class="mb-6 max-w-md">
+            <label class="relative block">
+                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
+                    @svg('heroicon-o-magnifying-glass', 'h-5 w-5')
+                </span>
+                <input
+                    type="search"
+                    x-model="q"
+                    @input="filter()"
+                    placeholder="Search settings…"
+                    class="w-full rounded-xl border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-white/10 dark:bg-white/5 dark:text-gray-100 dark:placeholder:text-gray-500"
+                >
+            </label>
         </div>
+
+        {{ $this->form }}
     </div>
 </x-filament-panels::page>

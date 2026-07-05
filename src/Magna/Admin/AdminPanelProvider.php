@@ -7,6 +7,7 @@ namespace Magna\Admin;
 use Filament\Enums\ThemeMode;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Navigation\MenuItem;
+use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -94,12 +95,18 @@ class AdminPanelProvider extends PanelProvider
             ->favicon(asset('favicon.svg'))
             // ── User menu ────────────────────────────────────────────────────
             //   Make the account row (the user's name + avatar at the top of the
-            //   menu) link straight to the profile page, and drop the separate
-            //   "My profile" item so there is a single, obvious entry point.
+            //   menu) link straight to the profile page, with a matching icon so
+            //   it reads as a menu item alongside "Sign out".
             ->userMenuItems([
                 'account' => MenuItem::make()
+                    ->icon('heroicon-o-user-circle')
                     ->url(fn (): string => ProfilePage::getUrl()),
             ])
+            // ── Settings submenu ─────────────────────────────────────────────
+            //   The unified settings page registers its own "All Settings" item
+            //   (navigationGroup 'Settings'); these children jump to each section
+            //   anchor on that page.
+            ->navigationItems($this->settingsNavigationItems())
             // ── Global search ─────────────────────────────────────────────────
             ->globalSearch()
             // ── Resources ────────────────────────────────────────────────────
@@ -175,5 +182,38 @@ class AdminPanelProvider extends PanelProvider
                     </script>
                 HTML),
             );
+    }
+
+    /**
+     * Child items under the "Settings" sidebar group — one per section on the
+     * unified settings page. Each jumps to its anchor. isActiveWhen is false so
+     * they don't all highlight (they share the /settings path).
+     *
+     * @return array<int, NavigationItem>
+     */
+    private function settingsNavigationItems(): array
+    {
+        $sections = [
+            ['general', 'General', 'heroicon-o-cog-6-tooth'],
+            ['localization', 'Localization', 'heroicon-o-language'],
+            ['content', 'Content', 'heroicon-o-document-text'],
+            ['media', 'Media', 'heroicon-o-photo'],
+            ['email', 'Email', 'heroicon-o-envelope'],
+            ['storage', 'Storage', 'heroicon-o-circle-stack'],
+            ['urls', 'URLs & Frontend', 'heroicon-o-link'],
+            ['security', 'Security', 'heroicon-o-shield-check'],
+        ];
+
+        $items = [];
+        foreach ($sections as $i => [$id, $label, $icon]) {
+            $items[] = NavigationItem::make($label)
+                ->group('Settings')
+                ->icon($icon)
+                ->sort($i + 1)
+                ->url('/settings#settings-'.$id)
+                ->isActiveWhen(fn (): bool => false);
+        }
+
+        return $items;
     }
 }

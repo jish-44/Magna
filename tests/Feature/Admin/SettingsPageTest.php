@@ -42,7 +42,10 @@ it('renders all settings sections on one page', function (): void {
         ->assertSee('Storage')
         ->assertSee('URLs & Frontend')
         ->assertSee('Security')
-        ->assertSee('Site name');
+        ->assertSee('Search settings')
+        // Site name/tagline and API settings live elsewhere, not here.
+        ->assertDontSee('Site name')
+        ->assertDontSee('Maximum page size');
 });
 
 it('saves settings across multiple groups at once', function (): void {
@@ -50,13 +53,13 @@ it('saves settings across multiple groups at once', function (): void {
 
     Livewire::test(SettingsPage::class)
         ->fillForm([
-            'site_name' => 'Rocket Site',
+            'default_locale' => 'fr',
             'session_lifetime' => 240,
         ])
         ->call('save')
         ->assertHasNoErrors();
 
-    expect(GeneralSettings::get()->site_name)->toBe('Rocket Site')
+    expect(GeneralSettings::get()->default_locale)->toBe('fr')
         ->and(SecuritySettings::get()->session_lifetime)->toBe(240);
 });
 

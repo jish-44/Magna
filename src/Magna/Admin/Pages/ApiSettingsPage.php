@@ -26,9 +26,6 @@ class ApiSettingsPage extends Page implements HasForms
 
     protected static string|\UnitEnum|null $navigationGroup = 'API';
 
-    // Hidden from the sidebar: consolidated into the unified SettingsPage.
-    protected static bool $shouldRegisterNavigation = false;
-
     protected static ?string $navigationLabel = 'API Settings';
 
     protected static ?string $title = 'API Settings';

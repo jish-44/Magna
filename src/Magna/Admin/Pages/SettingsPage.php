@@ -19,7 +19,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\HtmlString;
 use Magna\Plugins\PluginRecord;
-use Magna\Settings\ApiSettings;
 use Magna\Settings\ContentSettings;
 use Magna\Settings\GeneralSettings;
 use Magna\Settings\LocalizationSettings;
@@ -42,15 +41,15 @@ class SettingsPage extends Page implements HasForms
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'System';
+    protected static string|\UnitEnum|null $navigationGroup = 'Settings';
 
-    protected static ?string $navigationLabel = 'Settings';
+    protected static ?string $navigationLabel = 'All Settings';
 
     protected static ?string $title = 'Settings';
 
     protected static ?string $slug = 'settings';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 0;
 
     protected string $view = 'magna::admin.settings';
 
@@ -76,7 +75,6 @@ class SettingsPage extends Page implements HasForms
             ['id' => 'email', 'label' => 'Email', 'icon' => 'heroicon-o-envelope'],
             ['id' => 'storage', 'label' => 'Storage', 'icon' => 'heroicon-o-circle-stack'],
             ['id' => 'urls', 'label' => 'URLs & Frontend', 'icon' => 'heroicon-o-link'],
-            ['id' => 'api', 'label' => 'API', 'icon' => 'heroicon-o-code-bracket'],
             ['id' => 'security', 'label' => 'Security', 'icon' => 'heroicon-o-shield-check'],
         ];
     }
@@ -98,13 +96,10 @@ class SettingsPage extends Page implements HasForms
         $mail = MailSettings::get();
         $storage = StorageSettings::get();
         $url = UrlSettings::get();
-        $api = ApiSettings::get();
         $security = SecuritySettings::get();
 
         $this->form->fill([
             // General
-            'site_name' => $general->site_name,
-            'site_tagline' => $general->site_tagline,
             'registration_enabled' => $general->registration_enabled,
             'timezone' => $general->timezone,
             'default_locale' => $general->default_locale,
@@ -144,10 +139,6 @@ class SettingsPage extends Page implements HasForms
             'cdn_url' => $url->cdn_url,
             'frontend_url' => $url->frontend_url,
             'preview_base_url' => $url->preview_base_url,
-            // API
-            'api_enabled' => $api->api_enabled,
-            'default_per_page' => $api->default_per_page,
-            'max_per_page' => $api->max_per_page,
             // Security
             'force_https' => $security->force_https,
             'require_email_verification' => $security->require_email_verification,
@@ -161,8 +152,6 @@ class SettingsPage extends Page implements HasForms
             ->statePath('data')
             ->components([
                 $this->anchor('general', 'General', [
-                    TextInput::make('site_name')->label('Site name')->required()->maxLength(255),
-                    TextInput::make('site_tagline')->label('Tagline')->maxLength(255)->placeholder('A short description of your site'),
                     Toggle::make('registration_enabled')->label('Allow public registration')->helperText('When disabled, only admins can create new user accounts.')->inline(false),
                     Select::make('timezone')->label('Default timezone')->required()->searchable()->options(fn (): array => array_combine(timezone_identifiers_list(), timezone_identifiers_list())),
                     TextInput::make('default_locale')->label('Default language')->required()->maxLength(10)->placeholder('en')->helperText('BCP 47 locale code (e.g. en, fr, de).'),
@@ -220,12 +209,6 @@ class SettingsPage extends Page implements HasForms
                 ]),
 
                 $this->anchor('urls', 'URLs & Frontend', $this->urlComponents()),
-
-                $this->anchor('api', 'API', [
-                    Toggle::make('api_enabled')->label('API enabled')->helperText('When disabled, all delivery API requests return 503.')->inline(false),
-                    TextInput::make('default_per_page')->label('Default page size')->numeric()->required()->minValue(1)->maxValue(500)->helperText('Items returned when ?per_page is not specified.'),
-                    TextInput::make('max_per_page')->label('Maximum page size')->numeric()->required()->minValue(1)->maxValue(500)->helperText('Hard ceiling; larger requests are clamped.'),
-                ]),
 
                 $this->anchor('security', 'Security', [
                     Toggle::make('force_https')->label('Force HTTPS')->helperText('Redirect all HTTP requests to HTTPS. Only enable with an SSL certificate in place.')->inline(false),
@@ -286,8 +269,6 @@ class SettingsPage extends Page implements HasForms
         $int = static fn (mixed $v): int => (int) $v;
 
         $general = GeneralSettings::get();
-        $general->site_name = $str($data['site_name'] ?? '');
-        $general->site_tagline = $str($data['site_tagline'] ?? '');
         $general->registration_enabled = (bool) ($data['registration_enabled'] ?? false);
         $general->timezone = $str($data['timezone'] ?? 'UTC');
         $general->default_locale = $str($data['default_locale'] ?? 'en');
@@ -348,12 +329,6 @@ class SettingsPage extends Page implements HasForms
             $url->preview_base_url = $trim($data['preview_base_url'] ?? null);
         }
         $url->save();
-
-        $api = ApiSettings::get();
-        $api->api_enabled = (bool) ($data['api_enabled'] ?? true);
-        $api->default_per_page = $int($data['default_per_page'] ?? 25);
-        $api->max_per_page = $int($data['max_per_page'] ?? 100);
-        $api->save();
 
         $security = SecuritySettings::get();
         $security->force_https = (bool) ($data['force_https'] ?? false);
