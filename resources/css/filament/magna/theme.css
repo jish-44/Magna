@@ -168,6 +168,20 @@
     }
 }
 
+/* Scroll-spy active state for the Settings sub-nav sidebar items. Applied by
+   the BODY_END render-hook script as the user scrolls through settings
+   sections. Uses the primary (violet) accent to match Filament's own active
+   items. !important overrides Filament's default link styling. */
+a.magna-nav-active {
+    background-color: rgba(124, 58, 237, 0.12) !important;
+    color: #c4b5fd !important;
+    font-weight: 600 !important;
+}
+
+a.magna-nav-active :is(svg, .fi-icon) {
+    color: #a78bfa !important;
+}
+
 /* ── Magna brand mark ────────────────────────────────────────────────────── */
 
 .magna-brand {

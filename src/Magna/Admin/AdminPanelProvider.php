@@ -181,6 +181,64 @@ class AdminPanelProvider extends PanelProvider
                     })();
                     </script>
                 HTML),
+            )
+            // Settings sub-nav: intercept clicks on the section links so they
+            // smooth-scroll (Filament's SPA navigation otherwise swallows the
+            // anchor), and drive a scroll-spy that moves the active highlight in
+            // the sidebar as the user scrolls through sections. Lives in a
+            // persistent render hook and re-runs on every Livewire navigation.
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): HtmlString => new HtmlString(<<<'HTML'
+                    <script>
+                    (function () {
+                        var observer = null;
+                        function hrefId(link) {
+                            var m = (link.getAttribute('href') || '').match(/#(settings-[\w-]+)/);
+                            return m ? m[1] : null;
+                        }
+                        function setup() {
+                            var links = Array.prototype.slice.call(document.querySelectorAll('a[href*="#settings-"]'));
+                            links.forEach(function (link) {
+                                var id = hrefId(link);
+                                if (! id || link.dataset.magnaBound) return;
+                                link.dataset.magnaBound = '1';
+                                link.addEventListener('click', function (e) {
+                                    var el = document.getElementById(id);
+                                    if (! el) return; // not on the settings page — let it navigate
+                                    e.preventDefault();
+                                    e.stopImmediatePropagation();
+                                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    history.replaceState(null, '', '#' + id);
+                                }, true);
+                            });
+
+                            if (observer) { observer.disconnect(); observer = null; }
+                            var sections = Array.prototype.slice.call(document.querySelectorAll('[id^="settings-"]'));
+                            if (! sections.length) return;
+
+                            var map = {};
+                            links.forEach(function (link) { var id = hrefId(link); if (id) map[id] = link; });
+
+                            observer = new IntersectionObserver(function (entries) {
+                                entries.forEach(function (entry) {
+                                    if (! entry.isIntersecting) return;
+                                    Object.keys(map).forEach(function (k) { map[k].classList.remove('magna-nav-active'); });
+                                    if (map[entry.target.id]) map[entry.target.id].classList.add('magna-nav-active');
+                                });
+                            }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+                            sections.forEach(function (s) { observer.observe(s); });
+
+                            if (window.location.hash) {
+                                var target = document.querySelector(window.location.hash);
+                                if (target) requestAnimationFrame(function () { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+                            }
+                        }
+                        document.addEventListener('DOMContentLoaded', setup);
+                        document.addEventListener('livewire:navigated', setup);
+                    })();
+                    </script>
+                HTML),
             );
     }
 

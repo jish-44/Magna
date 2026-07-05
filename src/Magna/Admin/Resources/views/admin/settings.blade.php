@@ -13,15 +13,6 @@
                     section.style.display = match ? '' : 'none';
                 });
             },
-            init() {
-                const scrollToHash = () => {
-                    if (! window.location.hash) return;
-                    const el = document.querySelector(window.location.hash);
-                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                };
-                this.$nextTick(scrollToHash);
-                window.addEventListener('hashchange', scrollToHash);
-            },
         }"
     >
         {{-- Settings search --}}
