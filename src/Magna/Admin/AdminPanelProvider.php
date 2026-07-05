@@ -216,6 +216,29 @@ class AdminPanelProvider extends PanelProvider
                             return null;
                         }
 
+                        function scrollParent(el) {
+                            var p = el.parentElement;
+                            while (p && p !== document.body) {
+                                var oy = getComputedStyle(p).overflowY;
+                                if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+                                p = p.parentElement;
+                            }
+                            return null;
+                        }
+
+                        // scrollIntoView({behavior:'smooth'}) proved unreliable
+                        // here, so compute the target position and scroll the
+                        // real scroller (window or an overflow container) directly.
+                        function scrollToSection(el) {
+                            var offset = 90; // clear the sticky topbar
+                            var sp = scrollParent(el);
+                            if (sp) {
+                                sp.scrollTo({ top: el.offsetTop - offset, behavior: 'smooth' });
+                            } else {
+                                window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' });
+                            }
+                        }
+
                         function setup() {
                             var links = Array.prototype.slice.call(document.querySelectorAll('a[href*="#settings-"]'));
                             var linkBySlug = {};
@@ -236,7 +259,7 @@ class AdminPanelProvider extends PanelProvider
                                     if (! el) return; // not on the settings page — let it navigate
                                     e.preventDefault();
                                     e.stopImmediatePropagation();
-                                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    scrollToSection(el);
                                     history.replaceState(null, '', '#settings-' + slug);
                                 }, true);
                             });
@@ -263,7 +286,7 @@ class AdminPanelProvider extends PanelProvider
 
                             if (window.location.hash.indexOf('#settings-') === 0) {
                                 var el = sectionForSlug(window.location.hash.replace('#settings-', ''));
-                                if (el) requestAnimationFrame(function () { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+                                if (el) requestAnimationFrame(function () { scrollToSection(el); });
                             }
                         }
 
