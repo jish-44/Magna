@@ -26,6 +26,9 @@ class MediaSettingsPage extends Page implements HasForms
 
     protected static string|\UnitEnum|null $navigationGroup = 'System';
 
+    // Hidden from the sidebar: consolidated into the unified SettingsPage.
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationLabel = 'Media Settings';
 
     protected static ?string $title = 'Media Settings';

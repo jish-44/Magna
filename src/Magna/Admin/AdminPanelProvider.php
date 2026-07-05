@@ -24,6 +24,7 @@ use Magna\Admin\Pages\MediaSettingsPage;
 use Magna\Admin\Pages\PluginsPage;
 use Magna\Admin\Pages\ProfilePage;
 use Magna\Admin\Pages\SecuritySettingsPage;
+use Magna\Admin\Pages\SettingsPage;
 use Magna\Admin\Pages\StorageSettingsPage;
 use Magna\Admin\Pages\SystemInfoPage;
 use Magna\Admin\Pages\UrlSettingsPage;
@@ -114,6 +115,10 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
                 ContentTypeBuilder::class,
+                // Unified settings page (one scrollable page with a section
+                // sub-nav). The individual *SettingsPage classes below stay
+                // registered for their routes but are hidden from the sidebar.
+                SettingsPage::class,
                 GeneralSettingsPage::class,
                 UrlSettingsPage::class,
                 LocalizationSettingsPage::class,
