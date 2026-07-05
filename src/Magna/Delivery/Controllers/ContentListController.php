@@ -18,6 +18,7 @@ use Magna\Delivery\Exceptions\DeliveryException;
 use Magna\Delivery\RelationLoader;
 use Magna\Delivery\SurrogateKeyCollector;
 use Magna\Media\Media;
+use Magna\Settings\ApiSettings;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ContentListController extends Controller
@@ -33,6 +34,10 @@ final class ContentListController extends Controller
 
     public function __invoke(Request $request, string $type): Response
     {
+        if (! ApiSettings::get()->api_enabled) {
+            return response()->json(['message' => 'The API is currently disabled.'], 503);
+        }
+
         $contentType = $this->schema->get($type);
         if ($contentType === null) {
             return response()->json(['message' => "Content type '{$type}' not found."], 404);
@@ -85,8 +90,9 @@ final class ContentListController extends Controller
         }
 
         // Parse ?per_page= and ?cursor=
-        $perPageRaw = $request->input('per_page', 25);
-        $perPage = min(max(is_numeric($perPageRaw) ? (int) $perPageRaw : 25, 1), 100);
+        $apiSettings = ApiSettings::get();
+        $perPageRaw = $request->input('per_page', $apiSettings->default_per_page);
+        $perPage = min(max(is_numeric($perPageRaw) ? (int) $perPageRaw : $apiSettings->default_per_page, 1), $apiSettings->max_per_page);
         $cursor = $request->string('cursor')->value();
         $cursor = $cursor !== '' ? $cursor : null;
 

@@ -4,7 +4,8 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 
 it('attaches security headers to web responses', function (): void {
-    $response = $this->get('/');
+    // "/" redirects guests to the panel login; assert on the 200 login page.
+    $response = $this->get('/login');
 
     $response->assertHeader('X-Content-Type-Options', 'nosniff');
     $response->assertHeader('X-Frame-Options', 'DENY');

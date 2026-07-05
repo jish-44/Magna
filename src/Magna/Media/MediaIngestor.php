@@ -12,6 +12,7 @@ use Intervention\Image\ImageManager;
 use Magna\Media\Exceptions\MediaIngestException;
 use Magna\Media\Exceptions\MimeTypeNotAllowedException;
 use Magna\Media\Jobs\ProcessMediaConversionJob;
+use Magna\Settings\MediaSettings;
 
 class MediaIngestor
 {
@@ -45,16 +46,17 @@ class MediaIngestor
         'image/avif',
     ];
 
-    /** Maximum allowed file sizes in bytes, keyed by MIME type. */
-    private const MAX_SIZES = [
-        'image/jpeg' => 20_971_520,  // 20 MB
-        'image/png' => 20_971_520,
-        'image/gif' => 10_485_760,  // 10 MB
-        'image/webp' => 20_971_520,
-        'image/avif' => 20_971_520,
-        'image/svg+xml' => 2_097_152,  //  2 MB
-        'application/pdf' => 52_428_800, // 50 MB
-    ];
+    /** Resolves per-MIME size limits from MediaSettings at ingest time. */
+    private function maxSizeFor(string $mime): int
+    {
+        $s = MediaSettings::get();
+
+        return match ($mime) {
+            'image/svg+xml' => $s->max_svg_upload_bytes,
+            'application/pdf' => $s->max_document_upload_bytes,
+            default => $s->max_image_upload_bytes,
+        };
+    }
 
     /** Canonical extensions, keyed by MIME type. */
     private const MIME_EXTENSIONS = [
@@ -109,7 +111,7 @@ class MediaIngestor
         if ($fileSize === false) {
             throw new MediaIngestException("Cannot read file size for \"{$originalFilename}\".");
         }
-        $maxBytes = self::MAX_SIZES[$mime];
+        $maxBytes = $this->maxSizeFor($mime);
         if ($fileSize > $maxBytes) {
             throw new MediaIngestException(
                 "File \"{$originalFilename}\" exceeds the ".number_format($maxBytes / 1_048_576, 0).' MB limit for '.$mime.'.'
@@ -186,12 +188,14 @@ class MediaIngestor
         $width = $image->width();
         $height = $image->height();
 
+        $quality = MediaSettings::get()->default_image_quality;
+
         $encoded = match ($mime) {
-            'image/jpeg' => $image->toJpeg(90),
+            'image/jpeg' => $image->toJpeg($quality),
             'image/png' => $image->toPng(),
             'image/gif' => $image->toGif(),
-            'image/webp' => $image->toWebp(90),
-            'image/avif' => $image->toAvif(80),
+            'image/webp' => $image->toWebp($quality),
+            'image/avif' => $image->toAvif($quality),
             default => throw new MediaIngestException("Unsupported image MIME: {$mime}"),
         };
 

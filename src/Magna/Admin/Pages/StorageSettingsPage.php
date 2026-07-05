@@ -28,9 +28,13 @@ class StorageSettingsPage extends Page implements HasForms
 
     protected static ?string $navigationLabel = 'Storage Settings';
 
+    protected static ?string $title = 'Storage Settings';
+
     protected static ?int $navigationSort = 30;
 
     protected string $view = 'magna::admin.storage-settings';
+
+    public ?array $data = [];
 
     public static function canAccess(): bool
     {
@@ -126,12 +130,12 @@ class StorageSettingsPage extends Page implements HasForms
     }
 
     /** @return array<int, Action> */
-    protected function getFormActions(): array
+    protected function getHeaderActions(): array
     {
         return [
             Action::make('save')
                 ->label('Save settings')
-                ->submit('save'),
+                ->action(fn () => $this->save()),
         ];
     }
 }

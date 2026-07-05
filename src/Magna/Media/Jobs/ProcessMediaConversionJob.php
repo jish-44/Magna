@@ -17,6 +17,7 @@ use Magna\Media\ConversionPreset;
 use Magna\Media\ConversionPresetRegistry;
 use Magna\Media\Media;
 use Magna\Media\MediaConversion;
+use Magna\Settings\MediaSettings;
 
 class ProcessMediaConversionJob implements ShouldQueue
 {
@@ -86,8 +87,10 @@ class ProcessMediaConversionJob implements ShouldQueue
         $outputHeight = $image->height();
         $basePath = 'media/conversions/'.$this->mediaId.'/'.$this->presetName;
 
-        if ($preset->generateWebP) {
-            $content = (string) $image->toWebp(80);
+        $settings = MediaSettings::get();
+
+        if ($preset->generateWebP && $settings->webp_enabled) {
+            $content = (string) $image->toWebp($settings->default_image_quality);
             $path = $basePath.'.webp';
             Storage::disk($media->disk)->put($path, $content);
 
@@ -97,9 +100,9 @@ class ProcessMediaConversionJob implements ShouldQueue
             );
         }
 
-        if ($preset->generateAvif) {
+        if ($preset->generateAvif && $settings->avif_enabled) {
             try {
-                $content = (string) $image->toAvif(80);
+                $content = (string) $image->toAvif($settings->default_image_quality);
                 $path = $basePath.'.avif';
                 Storage::disk($media->disk)->put($path, $content);
 

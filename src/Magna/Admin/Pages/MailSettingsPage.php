@@ -28,21 +28,13 @@ class MailSettingsPage extends Page implements HasForms
 
     protected static ?string $navigationLabel = 'Mail Settings';
 
+    protected static ?string $title = 'Mail Settings';
+
     protected static ?int $navigationSort = 20;
 
     protected string $view = 'magna::admin.mail-settings';
 
-    public string $driver = 'smtp';
-
-    public string $host = 'localhost';
-
-    public int|string $port = 25;
-
-    public ?string $username = null;
-
-    public ?string $from_address = null;
-
-    public string $from_name = '';
+    public ?array $data = [];
 
     public static function canAccess(): bool
     {
@@ -122,11 +114,13 @@ class MailSettingsPage extends Page implements HasForms
 
         $settings = MailSettings::get();
         $settings->driver = $data['driver'];
-        $settings->host = $data['host'];
+        // host and from_name are optional inputs → null when cleared; coerce to
+        // string since the settings properties are non-nullable.
+        $settings->host = (string) ($data['host'] ?? '');
         $settings->port = (int) $data['port'];
         $settings->username = $data['username'] ?: null;
         $settings->from_address = $data['from_address'] ?? $settings->from_address;
-        $settings->from_name = $data['from_name'];
+        $settings->from_name = (string) ($data['from_name'] ?? '');
 
         // Only overwrite the secret password if the user supplied a new value.
         if (filled($data['password'])) {
@@ -142,12 +136,12 @@ class MailSettingsPage extends Page implements HasForms
     }
 
     /** @return array<int, Action> */
-    protected function getFormActions(): array
+    protected function getHeaderActions(): array
     {
         return [
             Action::make('save')
                 ->label('Save settings')
-                ->submit('save'),
+                ->action(fn () => $this->save()),
         ];
     }
 }

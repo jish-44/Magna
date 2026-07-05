@@ -3,19 +3,19 @@
 @source '../../../../app/Filament/**/*';
 @source '../../../../src/Magna/**/*.blade.php';
 
-/* Self-hosted Inter — woff2 files live in resources/fonts/inter/ */
+/* ── Self-hosted Inter ────────────────────────────────────────────────────── */
 @font-face {
     font-family: 'Inter';
     font-style: normal;
     font-weight: 100 900;
     font-display: swap;
     src: url('/fonts/inter/inter-var.woff2') format('woff2');
-    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
-        U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193,
-        U+2212, U+2215, U+FEFF, U+FFFD;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+        U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122,
+        U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Self-hosted JetBrains Mono — for IDs, API paths, code */
+/* ── Self-hosted JetBrains Mono ───────────────────────────────────────────── */
 @font-face {
     font-family: 'JetBrains Mono';
     font-style: normal;
@@ -31,39 +31,189 @@
     --radius-2xl: 1rem;
 }
 
-/* ── Glass panels ─────────────────────────────────────────────────────────── */
-/* Applied to Filament sections, widgets, and table containers in dark mode.  */
-/* Selectors verified against filament/filament v5.6.8.                       */
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHELL SURFACES
+   Only background-color overrides — these cannot affect Alpine.js behavior.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dark .fi-body {
+    background-color: #0b0f19;
+}
+
+.dark .fi-topbar {
+    background-color: #0d1220;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dark .fi-sidebar,
+.dark .fi-main-sidebar {
+    background-color: #0d1220;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLASS PANELS
+   Applies only to structural containers, not to interactive components.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .dark .fi-section,
+.dark .fi-wi-stats-overview-stat,
 .dark .fi-wi-widget,
 .dark .fi-ta-ctn,
 .magna-glass {
-    background: linear-gradient(160deg, rgba(20, 27, 45, 0.70), rgba(13, 18, 30, 0.80));
+    background: linear-gradient(160deg, rgba(20, 27, 45, 0.75) 0%, rgba(13, 18, 30, 0.85) 100%);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 1rem;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
-/* ── Shell surfaces ───────────────────────────────────────────────────────── */
-.dark .fi-sidebar { background: #0d1220; }
-.dark .fi-topbar  { background: #0d1220; }
-.dark .fi-body    { background: #0b0f19; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR NAV ITEM HOVER / ACTIVE
+   Safe to override: only color and background, no layout properties.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Scrollbars ───────────────────────────────────────────────────────────── */
-* { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
-*::-webkit-scrollbar              { width: 8px; height: 8px; }
-*::-webkit-scrollbar-thumb        { background: #334155; border-radius: 8px; }
-*::-webkit-scrollbar-thumb:hover  { background: #475569; }
+.dark .fi-sidebar-item-btn:hover {
+    background-color: rgba(124, 58, 237, 0.12);
+    color: #c4b5fd;
+}
 
-/* ── Focus ring (sky, visible on both violet controls and navy surfaces) ──── */
-:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.dark .fi-sidebar-item.fi-active .fi-sidebar-item-btn {
+    background-color: rgba(124, 58, 237, 0.18);
+    color: #a78bfa;
+}
 
-/* ── Live-status pulse animation ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOGIN PAGE (simple layout)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dark .fi-simple-layout {
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124, 58, 237, 0.1) 0%, transparent 70%),
+        #0b0f19;
+}
+
+/* One card only. Filament already renders the auth card (.fi-simple-main);
+   we just refine its finish. Previously a second card was painted on
+   .fi-simple-page, stacking a duplicate box behind the form. */
+.dark .fi-simple-main {
+    border-radius: 1.25rem;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(124, 58, 237, 0.08);
+}
+
+/* Brand mark on the login page: a clean vertical stack (icon over wordmark).
+   height:auto overrides the topbar rule so icon and text never overlap. */
+.fi-simple-main .magna-brand {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    height: auto;
+    padding-bottom: 0.25rem;
+}
+
+.fi-simple-main .magna-brand-icon {
+    width: 3.25rem;
+    height: 3.25rem;
+}
+
+.fi-simple-main .magna-brand-text {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOPBAR LOGO COLUMN
+   On desktop: remove topbar's built-in left padding so fi-topbar-start begins
+   flush with the viewport left edge, exactly where the sidebar starts below it.
+   fi-topbar-start gets the same width as the sidebar and a right separator.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1024px) {
+    .dark .fi-topbar {
+        padding-inline-start: 0;
+    }
+
+    .fi-topbar-start {
+        flex-shrink: 0;
+        width: var(--sidebar-width);
+        margin-inline-end: 0;
+        padding-inline: calc(var(--spacing) * 4);
+        align-self: stretch;
+        border-inline-end: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .fi-topbar-start .fi-logo {
+        margin-inline-start: calc(var(--spacing) * 2);
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+    }
+}
+
+/* ── Magna brand mark ────────────────────────────────────────────────────── */
+
+.magna-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    height: 100%;
+}
+
+.magna-brand-icon {
+    width: 1.875rem;
+    height: 1.875rem;
+    flex-shrink: 0;
+}
+
+.magna-brand-text {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--gray-100, #f1f5f9);
+    white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBARS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #334155 transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIVE-STATUS PULSE ANIMATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 @keyframes magna-ping {
-    75%, 100% { transform: scale(2); opacity: 0; }
+    75%, 100% {
+        transform: scale(2);
+        opacity: 0;
+    }
 }
-.magna-live-dot { position: relative; }
+
+.magna-live-dot {
+    position: relative;
+}
+
 .magna-live-dot::after {
     content: '';
     position: absolute;
@@ -73,8 +223,8 @@
     animation: magna-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-/* ── Respect prefers-reduced-motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-    .magna-live-dot::after { animation: none; }
-    * { transition-duration: 0ms !important; }
+    .magna-live-dot::after {
+        animation: none;
+    }
 }

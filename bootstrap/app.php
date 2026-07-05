@@ -15,8 +15,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Prepend globally so the "not installed" gate runs before anything
+        // else — in particular before the Filament panel's Authenticate
+        // middleware, which (mounted at "/") would otherwise redirect guests
+        // to /login before the installer redirect can fire. It only checks a
+        // lock file, so it needs no session.
+        $middleware->prepend(RedirectIfNotInstalled::class);
+
         $middleware->web(append: [
-            RedirectIfNotInstalled::class,
             SecurityHeadersMiddleware::class,
         ]);
 

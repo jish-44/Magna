@@ -14,14 +14,12 @@ use ReflectionProperty;
 
 class SettingsRepository
 {
-    private const CACHE_TAG = 'magna-settings';
-
     public function hydrate(Settings $instance): void
     {
         $group = $instance::group();
 
         /** @var array<string, mixed> $stored */
-        $stored = Cache::tags([self::CACHE_TAG])->remember(
+        $stored = Cache::remember(
             "magna-settings:{$group}",
             now()->addHour(),
             fn (): array => Setting::query()
@@ -79,7 +77,7 @@ class SettingsRepository
             );
         }
 
-        Cache::tags([self::CACHE_TAG])->forget("magna-settings:{$group}");
+        Cache::forget("magna-settings:{$group}");
 
         $after = $this->auditData($group, $ref, maskSecrets: true);
         $actorId = Auth::id();

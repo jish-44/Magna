@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Magna\Admin\Widgets;
 
+use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Magna\Admin\Resources\AuditLogResource;
+use Magna\Admin\Support\ActionLabel;
 use Magna\Audit\AuditLog;
 
 class RecentActivity extends TableWidget
@@ -23,26 +26,36 @@ class RecentActivity extends TableWidget
         return $table
             ->query(
                 fn (): Builder => AuditLog::query()
+                    ->with('actorUser')
                     ->latest('created_at')
                     ->limit(10),
             )
             ->columns([
                 TextColumn::make('created_at')
                     ->label('When')
-                    ->dateTime()
-                    ->sortable(),
+                    ->since()
+                    ->sortable()
+                    ->tooltip(fn (AuditLog $record): string => $record->created_at->format('M d, Y H:i')),
 
                 TextColumn::make('action')
                     ->label('Action')
                     ->badge()
-                    ->color('info'),
+                    ->color('info')
+                    ->formatStateUsing(fn (string $state): string => ActionLabel::get($state)),
 
-                TextColumn::make('actor_id')
-                    ->label('Actor')
-                    ->fontFamily('mono')
-                    ->placeholder('system')
-                    ->limit(16)
-                    ->tooltip(fn (?string $state): ?string => $state),
+                TextColumn::make('actor')
+                    ->label('User')
+                    ->getStateUsing(fn (AuditLog $record): string => $record->actorUser?->name ?? 'System')
+                    ->icon('heroicon-m-user-circle')
+                    ->iconColor('gray'),
+            ])
+            ->headerActions([
+                Action::make('view_all')
+                    ->label('View all')
+                    ->url(AuditLogResource::getUrl())
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->size('sm')
+                    ->color('gray'),
             ])
             ->paginated(false)
             ->defaultSort('created_at', 'desc');

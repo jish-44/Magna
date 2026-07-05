@@ -6,12 +6,30 @@ namespace Magna\Admin\Resources\Media;
 
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Support\Facades\Storage;
 use Magna\Admin\Resources\MediaResource;
+use Magna\Admin\Widgets\MediaStatsWidget;
+use Magna\Media\Media;
+use Magna\Media\MediaFolder;
 
 class ListMedia extends ListRecords
 {
     protected static string $resource = MediaResource::class;
+
+    protected string $view = 'magna::admin.media-list';
+
+    /** Live-search value wired from the blade search input. */
+    public string $gallerySearch = '';
+
+    /** @return array<class-string> */
+    protected function getHeaderWidgets(): array
+    {
+        return [MediaStatsWidget::class];
+    }
 
     /** @return array<int, Action> */
     protected function getHeaderActions(): array
@@ -20,6 +38,75 @@ class ListMedia extends ListRecords
             CreateAction::make()
                 ->label('Upload media')
                 ->icon('heroicon-m-arrow-up-tray'),
+
+            Action::make('recycleBin')
+                ->label('Recycle Bin')
+                ->icon('heroicon-o-trash')
+                ->color('gray')
+                ->url(fn (): string => MediaResource::getUrl('trash')),
+
+            Action::make('newFolder')
+                ->label('New folder')
+                ->icon('heroicon-m-folder-plus')
+                ->color('gray')
+                ->modalWidth('sm')
+                ->form([
+                    TextInput::make('name')
+                        ->label('Folder name')
+                        ->required()
+                        ->maxLength(255),
+
+                    Select::make('parent_id')
+                        ->label('Parent folder')
+                        ->options(fn (): array => MediaFolder::query()->orderBy('name')->pluck('name', 'id')->all())
+                        ->nullable()
+                        ->placeholder('— Root —'),
+                ])
+                ->action(function (array $data): void {
+                    MediaFolder::create([
+                        'name' => $data['name'],
+                        'parent_id' => $data['parent_id'] ?? null,
+                        'path' => $data['name'],
+                    ]);
+
+                    Notification::make()
+                        ->title('Folder "'.$data['name'].'" created.')
+                        ->success()
+                        ->send();
+                }),
         ];
+    }
+
+    public function deleteGalleryItem(string $id): void
+    {
+        $media = Media::withoutTrashed()->findOrFail($id);
+        $media->delete();
+
+        Notification::make()->title('Media moved to recycle bin.')->success()->send();
+    }
+
+    /** @return array<string, mixed> */
+    protected function getViewData(): array
+    {
+        $query = Media::query()
+            ->withoutTrashed()
+            ->latest()
+            ->when($this->gallerySearch !== '', fn ($q) => $q->where('original_filename', 'like', "%{$this->gallerySearch}%")
+                ->orWhere('title', 'like', "%{$this->gallerySearch}%")
+            );
+
+        return [
+            'galleryItems' => $query->paginate(24, ['*'], 'mpage'),
+            'galleryFolders' => MediaFolder::query()
+                ->orderBy('name')
+                ->withCount('media')
+                ->get(),
+        ];
+    }
+
+    /** Generate a public URL for a media item. */
+    public static function mediaUrl(Media $item): string
+    {
+        return Storage::disk($item->disk)->url($item->path);
     }
 }

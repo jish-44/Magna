@@ -5,14 +5,29 @@ declare(strict_types=1);
 namespace Magna\Admin;
 
 use Filament\Enums\ThemeMode;
+use Filament\Http\Middleware\Authenticate;
+use Filament\Navigation\MenuItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\View\View;
+use Illuminate\Support\HtmlString;
+use Magna\Admin\Pages\ApiSettingsPage;
+use Magna\Admin\Pages\ContentSettingsPage;
 use Magna\Admin\Pages\ContentTypeBuilder;
 use Magna\Admin\Pages\Dashboard;
 use Magna\Admin\Pages\GeneralSettingsPage;
+use Magna\Admin\Pages\LocalizationSettingsPage;
 use Magna\Admin\Pages\MailSettingsPage;
+use Magna\Admin\Pages\MediaSettingsPage;
+use Magna\Admin\Pages\PluginsPage;
+use Magna\Admin\Pages\ProfilePage;
+use Magna\Admin\Pages\SecuritySettingsPage;
 use Magna\Admin\Pages\StorageSettingsPage;
+use Magna\Admin\Pages\SystemInfoPage;
+use Magna\Admin\Pages\UrlSettingsPage;
+use Magna\Admin\Resources\ApiKeyResource;
 use Magna\Admin\Resources\AuditLogResource;
 use Magna\Admin\Resources\EntryResource;
 use Magna\Admin\Resources\MediaResource;
@@ -20,7 +35,6 @@ use Magna\Admin\Resources\RoleResource;
 use Magna\Admin\Resources\UserResource;
 use Magna\Admin\Widgets\EntryCounts;
 use Magna\Admin\Widgets\RecentActivity;
-use Magna\Auth\Http\Middleware\EnsureTwoFactorAuthenticated;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -28,7 +42,8 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->id('magna')
-            ->path('admin')
+            // Root domain: the admin panel lives at "/" — no "/admin" prefix.
+            ->path('')
             // ── Design Guide §9.1: navy-tinted color palette ─────────────────
             ->colors([
                 'primary' => Color::hex('#7c3aed'),
@@ -36,7 +51,6 @@ class AdminPanelProvider extends PanelProvider
                 'success' => Color::hex('#10b981'),
                 'warning' => Color::hex('#f59e0b'),
                 'danger' => Color::hex('#f43f5e'),
-                // Re-skin: navy-tinted gray drives every Filament surface.
                 'gray' => [
                     50 => '#f8fafc',
                     100 => '#f1f5f9',
@@ -51,21 +65,33 @@ class AdminPanelProvider extends PanelProvider
                     950 => '#0b0f19',
                 ],
             ])
-            // ── Design Guide §9.1: dark is the designed experience ────────────
             ->defaultThemeMode(ThemeMode::Dark)
             ->darkMode(true)
-            // ── Design Guide §3: Inter self-hosted via theme.css @font-face ──
             ->font('Inter')
-            // ── Design Guide §9.2: Vite theme with glass panels / scrollbars ─
             ->viteTheme('resources/css/filament/magna/theme.css')
-            // ── Auth: web guard + Stage 2 two-factor enforcement ─────────────
+            // ── Auth ──────────────────────────────────────────────────────────
+            //   authMiddleware is REQUIRED — without it every panel page is
+            //   publicly accessible. Authenticate redirects guests to ->login().
             ->authGuard('web')
-            ->authMiddleware([EnsureTwoFactorAuthenticated::class])
+            ->middleware(['web'])
+            ->authMiddleware([Authenticate::class])
+            ->login()
             // ── Layout ───────────────────────────────────────────────────────
             ->sidebarCollapsibleOnDesktop()
             ->maxContentWidth('full')
-            ->brandName('Magna')
-            // ── Global search (entries by title) ─────────────────────────────
+            // brandName intentionally omitted: the brand logo view already
+            // renders the "Magna" wordmark, so setting brandName too would
+            // duplicate it on the login header.
+            ->brandLogo(fn (): View => view('filament.magna.brand'))
+            ->brandLogoHeight('1.75rem')
+            // ── User menu ────────────────────────────────────────────────────
+            ->userMenuItems([
+                MenuItem::make()
+                    ->label('My profile')
+                    ->icon('heroicon-o-user-circle')
+                    ->url(fn (): string => ProfilePage::getUrl()),
+            ])
+            // ── Global search ─────────────────────────────────────────────────
             ->globalSearch()
             // ── Resources ────────────────────────────────────────────────────
             ->resources([
@@ -74,19 +100,67 @@ class AdminPanelProvider extends PanelProvider
                 UserResource::class,
                 RoleResource::class,
                 AuditLogResource::class,
+                ApiKeyResource::class,
             ])
             // ── Custom pages ─────────────────────────────────────────────────
             ->pages([
                 Dashboard::class,
                 ContentTypeBuilder::class,
                 GeneralSettingsPage::class,
+                UrlSettingsPage::class,
+                LocalizationSettingsPage::class,
+                ContentSettingsPage::class,
                 MailSettingsPage::class,
                 StorageSettingsPage::class,
+                MediaSettingsPage::class,
+                ApiSettingsPage::class,
+                SecuritySettingsPage::class,
+                SystemInfoPage::class,
+                PluginsPage::class,
+                ProfilePage::class,
             ])
             // ── Widgets ──────────────────────────────────────────────────────
             ->widgets([
                 EntryCounts::class,
                 RecentActivity::class,
-            ]);
+            ])
+            // ── Fix: Alpine $persist uses global localStorage keys ('isOpen',
+            //    'isOpenDesktop') shared across all Filament panels on the same
+            //    origin. If lovelink's sidebar is collapsed, those keys are 'false'
+            //    and magna-cms opens with an icon-only sidebar.
+            //
+            //    Solution: on the first page-load of each browser session for this
+            //    panel, listen for alpine:initialized and directly call
+            //    $store.sidebar.open(). This fires AFTER Alpine has read $persist
+            //    values but BEFORE the user has interacted, so the reactive x-show
+            //    on every sidebar label immediately updates to visible.
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): HtmlString => new HtmlString(<<<'HTML'
+                    <script>
+                    (function () {
+                        var SESSION_KEY = 'magna_sb_session_v1';
+                        if (sessionStorage.getItem(SESSION_KEY)) {
+                            return; // respect user's collapsed preference within session
+                        }
+                        sessionStorage.setItem(SESSION_KEY, '1');
+                        // Pre-set localStorage so Alpine $persist reads 'true' on init
+                        try {
+                            localStorage.setItem('isOpen', 'true');
+                            localStorage.setItem('isOpenDesktop', 'true');
+                        } catch (e) {}
+                        // Belt-and-suspenders: also set via the store after Alpine boots
+                        document.addEventListener('alpine:initialized', function () {
+                            try {
+                                var store = window.Alpine && window.Alpine.store('sidebar');
+                                if (store && typeof store.open === 'function') {
+                                    store.open();
+                                }
+                            } catch (e) {}
+                        });
+                    })();
+                    </script>
+                HTML),
+            );
     }
 }

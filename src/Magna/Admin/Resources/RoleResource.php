@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Magna\Admin\Resources;
 
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -13,6 +16,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Magna\Admin\Resources\Role\ManageRoles;
+use Magna\Auth\PermissionRegistry;
 use Magna\Auth\Role;
 
 class RoleResource extends \Filament\Resources\Resource
@@ -44,7 +48,17 @@ class RoleResource extends \Filament\Resources\Resource
 
     public static function canDelete(Model $record): bool
     {
-        return auth()->user()?->can('roles.manage') ?? false;
+        if (! (auth()->user()?->can('roles.manage') ?? false)) {
+            return false;
+        }
+
+        /** @var Role $record */
+        return ! static::isLastSuperAdminRole($record);
+    }
+
+    private static function isLastSuperAdminRole(Role $role): bool
+    {
+        return $role->is_super_admin && Role::where('is_super_admin', true)->count() <= 1;
     }
 
     public static function form(Schema $schema): Schema
@@ -72,11 +86,22 @@ class RoleResource extends \Filament\Resources\Resource
                 ->label('Super admin')
                 ->helperText('Super admins bypass all permission checks.')
                 ->inline(false),
+
+            CheckboxList::make('permission_keys')
+                ->label('Permissions')
+                ->options(fn (): array => collect(app(PermissionRegistry::class)->all())
+                    ->map(fn (?string $desc, string $key): string => $desc ? "{$key} — {$desc}" : $key)
+                    ->all())
+                ->columns(2)
+                ->searchable()
+                ->helperText('Select the permission keys this role grants. Ignored for super admin roles.'),
         ]);
     }
 
     public static function table(Table $table): Table
     {
+        $editKeys = [];
+
         return $table
             ->columns([
                 TextColumn::make('name')
@@ -105,6 +130,27 @@ class RoleResource extends \Filament\Resources\Resource
                     ->label('Permissions')
                     ->counts('permissions')
                     ->sortable(),
+            ])
+            ->actions([
+                EditAction::make()
+                    ->visible(fn (Role $record): bool => (auth()->user()?->can('roles.manage') ?? false)
+                        && ! static::isLastSuperAdminRole($record)
+                    )
+                    ->mutateRecordDataUsing(fn (array $data, Role $record): array => array_merge($data, [
+                        'permission_keys' => $record->grants(),
+                    ]))
+                    ->using(function (Role $record, array $data) use (&$editKeys): void {
+                        $editKeys = $data['permission_keys'] ?? [];
+                        $record->update($data);
+                        $record->permissions()->delete();
+                        foreach ($editKeys as $key) {
+                            $record->grant($key);
+                        }
+                    }),
+                DeleteAction::make()
+                    ->visible(fn (Role $record): bool => (auth()->user()?->can('roles.manage') ?? false)
+                        && ! static::isLastSuperAdminRole($record)
+                    ),
             ])
             ->defaultSort('name');
     }

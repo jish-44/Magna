@@ -107,7 +107,7 @@ class ContentTypeBuilder extends Page
             Section::make('Fields')
                 ->schema([
                     Repeater::make('typeData.fields')
-                        ->label(false)
+                        ->hiddenLabel()
                         ->schema([
                             TextInput::make('handle')
                                 ->label('Handle')

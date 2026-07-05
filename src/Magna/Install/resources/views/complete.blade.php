@@ -17,7 +17,7 @@
     <ul class="summary">
         <li><span>Site</span> <strong>{{ config('app.name') }}</strong></li>
         <li><span>Content API</span> <code>{{ rtrim((string) config('app.url'), '/') }}/api/v1</code></li>
-        <li><span>Admin panel</span> <code>/admin</code> <span class="hint">(arrives with the admin release)</span></li>
+        <li><span>Admin panel</span> <code>/</code> <span class="hint">(sign in to manage your site)</span></li>
     </ul>
 
     <a class="btn" href="/">Visit your site</a>

@@ -7,6 +7,7 @@ namespace Magna\Media;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Magna\Settings\UrlSettings;
 
 class MediaUrlResolver
 {
@@ -18,6 +19,8 @@ class MediaUrlResolver
      */
     public function publicUrl(Media $media, ?string $preset = null): string
     {
+        $path = $media->path;
+
         if ($preset !== null) {
             $conversion = MediaConversion::where('media_id', $media->id)
                 ->where('preset', $preset)
@@ -25,11 +28,16 @@ class MediaUrlResolver
                 ->first();
 
             if ($conversion !== null) {
-                return Storage::disk($media->disk)->url($conversion->path);
+                $path = $conversion->path;
             }
         }
 
-        return Storage::disk($media->disk)->url($media->path);
+        $cdnUrl = UrlSettings::get()->cdn_url;
+        if ($cdnUrl !== '') {
+            return rtrim($cdnUrl, '/').'/'.ltrim($path, '/');
+        }
+
+        return Storage::disk($media->disk)->url($path);
     }
 
     /**
@@ -76,8 +84,16 @@ class MediaUrlResolver
             return '';
         }
 
+        $cdnUrl = UrlSettings::get()->cdn_url;
+
         return $conversions
-            ->map(fn (MediaConversion $c): string => Storage::disk($media->disk)->url($c->path).' '.$c->width.'w')
+            ->map(function (MediaConversion $c) use ($media, $cdnUrl): string {
+                $url = $cdnUrl !== ''
+                    ? rtrim($cdnUrl, '/').'/'.ltrim($c->path, '/')
+                    : Storage::disk($media->disk)->url($c->path);
+
+                return $url.' '.$c->width.'w';
+            })
             ->implode(', ');
     }
 

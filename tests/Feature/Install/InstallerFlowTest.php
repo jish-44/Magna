@@ -95,9 +95,10 @@ it('completes the full installation happy path', function (): void {
     $admin = User::query()->where('email', 'ada@example.com')->firstOrFail();
     expect($admin->isSuperAdmin())->toBeTrue();
 
-    // Aftermath: success page renders, site is live, installer is gone.
+    // Aftermath: success page renders, site is live (root now redirects
+    // guests to the panel login), installer is gone.
     $this->get('/install/complete')->assertOk()->assertSee('Magna is installed');
-    $this->get('/')->assertOk();
+    $this->get('/')->assertRedirect('/login');
     $this->get('/install')->assertNotFound();
 });
 

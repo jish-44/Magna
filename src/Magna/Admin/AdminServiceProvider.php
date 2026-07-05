@@ -58,7 +58,7 @@ class AdminServiceProvider extends ServiceProvider
                             fn (): string => $item->resourceClass::getUrl(),
                         );
                     } elseif ($item->route !== null) {
-                        $navItem->url(route($item->route));
+                        $navItem->url(fn (): string => route($item->route));
                     }
 
                     $perm = $item->getRequiredPermission();

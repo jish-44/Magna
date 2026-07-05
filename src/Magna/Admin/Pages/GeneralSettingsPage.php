@@ -6,12 +6,14 @@ namespace Magna\Admin\Pages;
 
 use Filament\Actions\Action;
 use Filament\Forms\ComponentContainer;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Magna\Settings\GeneralSettings;
 
@@ -28,15 +30,13 @@ class GeneralSettingsPage extends Page implements HasForms
 
     protected static ?string $navigationLabel = 'General Settings';
 
+    protected static ?string $title = 'General Settings';
+
     protected static ?int $navigationSort = 10;
 
     protected string $view = 'magna::admin.general-settings';
 
-    public string $site_name = '';
-
-    public string $default_locale = 'en';
-
-    public bool $registration_enabled = false;
+    public ?array $data = [];
 
     public static function canAccess(): bool
     {
@@ -48,9 +48,13 @@ class GeneralSettingsPage extends Page implements HasForms
         $settings = GeneralSettings::get();
 
         $this->form->fill([
-            'site_name' => $settings->site_name,
+            'timezone' => $settings->timezone,
             'default_locale' => $settings->default_locale,
             'registration_enabled' => $settings->registration_enabled,
+            'date_format' => $settings->date_format,
+            'time_format' => $settings->time_format,
+            'first_day_of_week' => $settings->first_day_of_week,
+            'currency' => $settings->currency,
         ]);
     }
 
@@ -59,33 +63,105 @@ class GeneralSettingsPage extends Page implements HasForms
         return $schema
             ->statePath('data')
             ->components([
-                TextInput::make('site_name')
-                    ->label('Site name')
-                    ->required()
-                    ->maxLength(255),
+                Section::make('Site identity')
+                    ->schema([
+                        TextInput::make('site_name')
+                            ->label('Site name')
+                            ->required()
+                            ->maxLength(255),
 
-                TextInput::make('default_locale')
-                    ->label('Default locale')
-                    ->required()
-                    ->maxLength(10)
-                    ->placeholder('en'),
+                        TextInput::make('site_tagline')
+                            ->label('Tagline')
+                            ->maxLength(255)
+                            ->placeholder('A short description of your site'),
 
-                Toggle::make('registration_enabled')
-                    ->label('Allow public registration')
-                    ->helperText('When disabled, only admins can create new user accounts.')
-                    ->inline(false),
+                        Toggle::make('registration_enabled')
+                            ->label('Allow public registration')
+                            ->helperText('When disabled, only admins can create new user accounts.')
+                            ->inline(false),
+                    ]),
+
+                Section::make('Locale & regional')
+                    ->schema([
+                        Select::make('timezone')
+                            ->label('Default timezone')
+                            ->required()
+                            ->searchable()
+                            ->options(fn (): array => array_combine(timezone_identifiers_list(), timezone_identifiers_list())),
+
+                        TextInput::make('default_locale')
+                            ->label('Default language')
+                            ->required()
+                            ->maxLength(10)
+                            ->placeholder('en')
+                            ->helperText('BCP 47 locale code (e.g. en, fr, de).'),
+
+                        Select::make('date_format')
+                            ->label('Default date format')
+                            ->options([
+                                'Y-m-d' => 'ISO 8601 (2025-01-31)',
+                                'd/m/Y' => 'DD/MM/YYYY (31/01/2025)',
+                                'm/d/Y' => 'MM/DD/YYYY (01/31/2025)',
+                                'd.m.Y' => 'DD.MM.YYYY (31.01.2025)',
+                                'M j, Y' => 'Jan 31, 2025',
+                                'j F Y' => '31 January 2025',
+                            ])
+                            ->required(),
+
+                        Select::make('time_format')
+                            ->label('Default time format')
+                            ->options([
+                                'H:i' => '24-hour (14:30)',
+                                'g:i A' => '12-hour (2:30 PM)',
+                            ])
+                            ->required(),
+
+                        Select::make('first_day_of_week')
+                            ->label('First day of week')
+                            ->options([
+                                0 => 'Sunday',
+                                1 => 'Monday',
+                                6 => 'Saturday',
+                            ])
+                            ->required(),
+
+                        TextInput::make('currency')
+                            ->label('Default currency')
+                            ->maxLength(10)
+                            ->placeholder('USD')
+                            ->helperText('ISO 4217 currency code (e.g. USD, EUR, GBP). Optional.')
+                            ->nullable(),
+                    ]),
             ]);
     }
 
     public function save(): void
     {
-        /** @var array{site_name: string, default_locale: string, registration_enabled: bool} $data */
+        /** @var array{
+         *   site_name: string,
+         *   site_tagline: string,
+         *   timezone: string,
+         *   default_locale: string,
+         *   registration_enabled: bool,
+         *   date_format: string,
+         *   time_format: string,
+         *   first_day_of_week: int|string,
+         *   currency: string,
+         * } $data
+         */
         $data = $this->form->getState();
 
         $settings = GeneralSettings::get();
         $settings->site_name = $data['site_name'];
+        // Optional input → null when cleared; property is a non-nullable string.
+        $settings->site_tagline = (string) ($data['site_tagline'] ?? '');
+        $settings->timezone = $data['timezone'];
         $settings->default_locale = $data['default_locale'];
         $settings->registration_enabled = $data['registration_enabled'];
+        $settings->date_format = $data['date_format'];
+        $settings->time_format = $data['time_format'];
+        $settings->first_day_of_week = (int) $data['first_day_of_week'];
+        $settings->currency = $data['currency'] ?? '';
         $settings->save();
 
         Notification::make()
@@ -95,12 +171,12 @@ class GeneralSettingsPage extends Page implements HasForms
     }
 
     /** @return array<int, Action> */
-    protected function getFormActions(): array
+    protected function getHeaderActions(): array
     {
         return [
             Action::make('save')
                 ->label('Save settings')
-                ->submit('save'),
+                ->action(fn () => $this->save()),
         ];
     }
 }

@@ -11,6 +11,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Magna\Settings\GeneralSettings;
+use Magna\Settings\SecuritySettings;
 use Magna\Users\User;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -43,6 +44,10 @@ class RegisterController extends Controller
         ]);
 
         event(new Registered($user));
+
+        if (SecuritySettings::get()->require_email_verification) {
+            return redirect()->route('verification.notice');
+        }
 
         Auth::login($user);
 

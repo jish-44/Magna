@@ -8,12 +8,15 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Magna\Admin\Resources\AuditLog\ListAuditLogs;
+use Magna\Admin\Support\ActionLabel;
 use Magna\Audit\AuditLog;
 
-class AuditLogResource extends \Filament\Resources\Resource
+class AuditLogResource extends Resource
 {
     protected static ?string $model = AuditLog::class;
 
@@ -25,7 +28,6 @@ class AuditLogResource extends \Filament\Resources\Resource
 
     protected static ?string $recordTitleAttribute = 'action';
 
-    // Audit log is read-only — no create, edit, or delete.
     public static function canCreate(): bool
     {
         return false;
@@ -48,37 +50,40 @@ class AuditLogResource extends \Filament\Resources\Resource
 
     public static function form(Schema $schema): Schema
     {
-        // No form — read-only resource.
         return $schema->components([]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('actorUser'))
             ->columns([
                 TextColumn::make('created_at')
                     ->label('When')
-                    ->dateTime()
+                    ->dateTime('M d, Y H:i')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->tooltip(fn (AuditLog $record): string => $record->created_at->diffForHumans()),
 
                 TextColumn::make('action')
                     ->label('Action')
                     ->searchable()
                     ->sortable()
                     ->badge()
-                    ->color('info'),
+                    ->color('info')
+                    ->formatStateUsing(fn (string $state): string => ActionLabel::get($state))
+                    ->tooltip(fn (string $state): string => $state),
 
-                TextColumn::make('actor_id')
-                    ->label('Actor ID')
-                    ->searchable()
-                    ->fontFamily('mono')
-                    ->placeholder('—')
-                    ->limit(20)
-                    ->tooltip(fn (?string $state): ?string => $state),
+                TextColumn::make('actor_name')
+                    ->label('User')
+                    ->getStateUsing(fn (AuditLog $record): string => $record->actorUser?->name ?? 'System')
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->whereHas('actorUser', fn (Builder $q) => $q->where('name', 'like', "%{$search}%"))
+                    )
+                    ->icon('heroicon-m-user-circle')
+                    ->iconColor('gray'),
 
                 TextColumn::make('subject_type')
-                    ->label('Subject type')
+                    ->label('Subject')
                     ->searchable()
                     ->formatStateUsing(
                         fn (?string $state): string => $state !== null
@@ -86,14 +91,20 @@ class AuditLogResource extends \Filament\Resources\Resource
                             : '—',
                     ),
 
-                TextColumn::make('subject_id')
-                    ->label('Subject ID')
+                TextColumn::make('ip')
+                    ->label('IP Address')
                     ->searchable()
                     ->fontFamily('mono')
                     ->placeholder('—')
-                    ->limit(20)
-                    ->tooltip(fn (?string $state): ?string => $state),
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->groups([
+                Group::make('created_at')
+                    ->label('Date')
+                    ->date()
+                    ->collapsible(),
+            ])
+            ->defaultGroup('created_at')
             ->filters([
                 SelectFilter::make('action')
                     ->label('Action')
@@ -103,6 +114,7 @@ class AuditLogResource extends \Filament\Resources\Resource
                             ->distinct()
                             ->orderBy('action')
                             ->pluck('action', 'action')
+                            ->mapWithKeys(fn (string $action): array => [$action => ActionLabel::get($action)])
                             ->all(),
                     ),
             ])

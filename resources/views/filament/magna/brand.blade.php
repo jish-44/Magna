@@ -1,0 +1,13 @@
+<div class="magna-brand">
+    <svg class="magna-brand-icon" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+        <defs>
+            <linearGradient id="magna-logo-gradient" x1="0" y1="0" x2="34" y2="34">
+                <stop stop-color="#6366f1"/>
+                <stop offset="1" stop-color="#8b5cf6"/>
+            </linearGradient>
+        </defs>
+        <path d="M17 1 31 9v16l-14 8L3 25V9l14-8Z" stroke="url(#magna-logo-gradient)" stroke-width="2.4" fill="rgba(99,102,241,.09)"/>
+        <path d="M10 23V11.5l7 6 7-6V23" stroke="url(#magna-logo-gradient)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <span class="magna-brand-text">Magna</span>
+</div>

@@ -17,6 +17,7 @@ use Magna\Content\EntryStatus;
 use Magna\Content\Exceptions\SchemaException;
 use Magna\Content\Models\Revision;
 use Magna\Content\SchemaRegistry;
+use Magna\Settings\ApiSettings;
 use Symfony\Component\HttpFoundation\Response;
 
 class EntryController extends ManagementController
@@ -35,7 +36,8 @@ class EntryController extends ManagementController
 
         Gate::authorize("content.{$type}.view");
 
-        $perPage = min(max($request->integer('per_page', 25), 1), 100);
+        $apiSettings = ApiSettings::get();
+        $perPage = min(max($request->integer('per_page', $apiSettings->default_per_page), 1), $apiSettings->max_per_page);
         $paginator = Entry::type($type)
             ->orderByDesc('updated_at')
             ->paginate($perPage);

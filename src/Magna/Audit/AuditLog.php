@@ -6,8 +6,10 @@ namespace Magna\Audit;
 
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use LogicException;
+use Magna\Users\User;
 
 /**
  * Append-only audit log. Entries cannot be updated or deleted at the Eloquent
@@ -62,6 +64,16 @@ class AuditLog extends Model
     public function delete(): ?bool
     {
         throw new LogicException('Audit log entries are immutable and cannot be deleted.');
+    }
+
+    /**
+     * The user who performed the action (nullable — system events have no actor).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function actorUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actor_id');
     }
 
     public static function record(

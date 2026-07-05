@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Magna\Auth\Role;
+use Magna\Settings\ApiSettings;
 use Magna\Users\User;
 
 class UserController extends ManagementController
@@ -17,7 +18,8 @@ class UserController extends ManagementController
     {
         Gate::authorize('users.view');
 
-        $perPage = min(max($request->integer('per_page', 25), 1), 100);
+        $apiSettings = ApiSettings::get();
+        $perPage = min(max($request->integer('per_page', $apiSettings->default_per_page), 1), $apiSettings->max_per_page);
         $paginator = User::query()->orderByDesc('created_at')->paginate($perPage);
 
         /** @var array<int, array<string, mixed>> $items */

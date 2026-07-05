@@ -6,17 +6,21 @@ namespace Magna\Content\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Magna\Settings\ContentSettings;
 
 class RevisionsPruneCommand extends Command
 {
     protected $signature = 'magna:revisions:prune
-                            {--keep=50 : Maximum number of revisions to keep per entry}';
+                            {--keep= : Maximum number of revisions to keep per entry (defaults to the content.revision_limit setting)}';
 
     protected $description = 'Prune old revisions, keeping only the newest N per entry.';
 
     public function handle(): int
     {
-        $keep = max(1, (int) $this->option('keep'));
+        $keepOption = $this->option('keep');
+        $keep = $keepOption !== null
+            ? max(1, (int) $keepOption)
+            : max(1, ContentSettings::get()->revision_limit);
 
         $groups = DB::table('magna_revisions')
             ->selectRaw('entry_type, entry_id, COUNT(*) as total')
