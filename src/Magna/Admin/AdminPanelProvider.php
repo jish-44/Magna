@@ -224,6 +224,11 @@ class AdminPanelProvider extends PanelProvider
                                 if (! m) return;
                                 var slug = m[1];
                                 linkBySlug[slug] = link;
+                                // Strip Livewire SPA navigation so clicking a
+                                // section link scrolls in place instead of
+                                // re-rendering the page. Cross-page clicks fall
+                                // back to a normal browser navigation + scroll.
+                                link.removeAttribute('wire:navigate');
                                 if (link.dataset.magnaBound) return;
                                 link.dataset.magnaBound = '1';
                                 link.addEventListener('click', function (e) {
