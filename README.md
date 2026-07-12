@@ -299,31 +299,77 @@ plugins-dev/vendor/my-plugin/
 - MySQL 8+ / PostgreSQL 14+ / SQLite (development)
 - Node.js 20+ (for asset compilation)
 
-### Installation
+### Step 1 — Get the code running
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/jish-44/Magna.git my-cms
 cd my-cms
-
-# 2. Install dependencies
 composer install
 npm install && npm run build
-
-# 3. Copy environment file and configure
-cp .env.example .env
-php artisan key:generate
-
-# 4. Configure your database in .env, then run migrations
-php artisan migrate
-
-# 5. Start the development server
 php artisan serve
 ```
 
-Open `http://localhost:8000` — the **browser installer** walks you through your first admin account, then locks itself forever. After setup, the admin panel is at `http://localhost:8000/`.
+Open `http://localhost:8000` — every request lands on the **browser installer** until setup is complete.
 
-> **Browser installer**: No CLI commands needed for setup. Open the site → installer guides you through database, admin account, and initial settings → returns 404 forever once complete.
+---
+
+## 🖱️ Browser Installer
+
+No config files to edit, no CLI setup commands. Open the site and the installer guides you through four steps — then permanently disables itself.
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="screenshots/install-01-requirements.png" alt="Step 1 — Requirements check">
+      <p align="center"><sub><strong>Step 1 — Requirements</strong></sub></p>
+    </td>
+    <td width="50%">
+      <img src="screenshots/install-02-site.png" alt="Step 2 — Site configuration">
+      <p align="center"><sub><strong>Step 2 — Site</strong></sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="screenshots/install-03-database.png" alt="Step 3 — Database connection">
+      <p align="center"><sub><strong>Step 3 — Database</strong></sub></p>
+    </td>
+    <td width="50%">
+      <img src="screenshots/install-04-account.png" alt="Step 4 — Admin account">
+      <p align="center"><sub><strong>Step 4 — Admin account</strong></sub></p>
+    </td>
+  </tr>
+</table>
+
+### Step 1 — Requirements check
+
+The installer opens with a live **server requirements scan**. Every required item — PHP 8.3+, PDO, mbstring, OpenSSL, ctype, fileinfo, cURL, XML/DOM, tokenizer, writable `storage/` and `bootstrap/cache/` directories, writable `.env` — is probed and shown as `PASS` or `FAIL` with a plain-language explanation of how to fix it. Required failures block progress; recommended items (Argon2id, intl, GD, Redis) warn without blocking. You cannot proceed until everything required is green.
+
+### Step 2 — Site configuration
+
+Set your **site name** and **site URL** (http/https only — the installer rejects other schemes). Toggle **"This is a production site"** to enable production mode, which sets `APP_ENV=production` and `APP_DEBUG=false`, hiding detailed error pages from visitors. All values are written directly to `.env` — no manual file editing required.
+
+### Step 3 — Database connection
+
+Choose your database driver from four **visual driver cards**:
+
+| Driver | Notes |
+|---|---|
+| **PostgreSQL** *(recommended)* | Best performance and strictest SQL mode |
+| **MySQL 8.0+** | Widely available on shared hosting |
+| **MariaDB 10.6+** | MySQL-compatible alternative |
+| **SQLite** *(zero config)* | Great for development — just a file path |
+
+Fill in host, port, database name, username, and password (SQLite shows a file path field instead). Click **"Test connection & continue"** — Magna probes the connection *before* writing anything. If the connection fails, you get a plain-language error (wrong credentials vs. missing database vs. unreachable host), not a raw PDO exception. On success, Magna writes the database config to `.env`, runs migrations, and seeds the default roles — all automatically.
+
+### Step 4 — Admin account
+
+Create your **super-admin account**: name, email, and a password of at least 12 characters. This account gets the `super-admin` role which bypasses every permission check. You can add regular team members with scoped roles from the admin panel after setup. Click **"Create account & finish installation"**.
+
+### Installation complete
+
+Magna writes a lock file (`storage/app/magna-installed.json`) and every installer route returns **404 permanently** — the installer cannot be re-run or accessed by anyone, including the server owner. Your admin panel is at `http://your-site.com/` and your delivery API is at `http://your-site.com/api/v1/`.
+
+---
 
 ### Your First Content Type
 
