@@ -90,6 +90,15 @@
 
 **Working today:**  You Can install & try Magna CMS in your sever using Web Installer or CLI .
 
+## Download Magna
+
+Ready to try Magna CMS? Grab the latest install package — unzip, run the installer, done.
+
+[![Download Magna CMS](https://img.shields.io/badge/Download-Magna%20CMS%20v1.2.0-7c3aed?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Magna-CMS/Magna/raw/Development/downloads/magna-cms-v1.2.0.zip)
+
+**[⬇ Download magna-cms-v1.2.0.zip](https://github.com/Magna-CMS/Magna/raw/Development/downloads/magna-cms-v1.2.0.zip)**
+
+
 ---
 
 ## 💡 What is Magna?
