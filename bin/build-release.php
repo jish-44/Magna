@@ -48,7 +48,34 @@ if (! extension_loaded('zip')) {
 // ---------------------------------------------------------------------------
 // Resolve version.
 // ---------------------------------------------------------------------------
-$version = $argv[1] ?? null;
+// Parse arguments: first non-flag token is the version; flags start with --.
+$flags = [];
+$version = null;
+foreach (array_slice($argv, 1) as $arg) {
+    if (str_starts_with($arg, '--')) {
+        $flags[] = $arg;
+    } elseif ($version === null) {
+        $version = $arg;
+    }
+}
+
+// Build profiles. A profile bundles extra first-party plugins (composer
+// package + version constraint) on top of the base release and tags the output
+// filename with a suffix so it never overwrites the base archive.
+//
+//   --hub  : the deployment that runs the marketplace and manages other Magna
+//            installs (e.g. managemagna). Ships the Core Plugin Manager and the
+//            Marketplace, which are require-dev (so excluded from a normal
+//            --no-dev build) and therefore must be added explicitly here.
+$extraPlugins = [];
+$suffix = '';
+if (in_array('--hub', $flags, true)) {
+    $extraPlugins = [
+        'magna-cms/marketplace:@dev',
+        'magna/plugin-manager:dev-Development',
+    ];
+    $suffix = '-hub';
+}
 
 if ($version === null) {
     $providerSource = @file_get_contents($root.'/src/Magna/MagnaServiceProvider.php') ?: '';
@@ -230,6 +257,29 @@ if ($code !== 0) {
 }
 
 // ---------------------------------------------------------------------------
+// Profile plugins: pull the extra first-party packages (require-dev, so absent
+// from the --no-dev set above) into the release from their rewritten path
+// repositories. They are copied, not symlinked, exactly like docs/plugin-sdk.
+// ---------------------------------------------------------------------------
+if ($extraPlugins !== []) {
+    say('Bundling profile plugins: '.implode(', ', $extraPlugins), C_GREEN);
+    // --update-no-dev: adding a package re-enables dev requirements by default;
+    // this keeps root require-dev (pest, collision, pail, …) out of the release.
+    $cmd = sprintf(
+        '%s %s require %s --update-no-dev --no-scripts --optimize-autoloader --classmap-authoritative --no-interaction --no-progress --working-dir=%s 2>&1',
+        escapeshellarg($phpBin),
+        escapeshellarg($composer),
+        implode(' ', array_map('escapeshellarg', $extraPlugins)),
+        escapeshellarg($stage)
+    );
+    passthru($cmd, $code);
+    if ($code !== 0) {
+        rrmdir($stage);
+        fail('composer require for profile plugins failed. See output above.');
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Root forwarder — the piece that makes "extract to the domain root" work.
 // ---------------------------------------------------------------------------
 say('Writing root forwarder (index.php + .htaccess)', C_GREEN);
@@ -238,13 +288,13 @@ file_put_contents($stage.'/.htaccess', root_htaccess());
 file_put_contents($stage.'/web.config', root_web_config());
 
 // A short readme so a human opening the archive knows what to do.
-file_put_contents($stage.'/INSTALL.txt', install_readme($version));
+file_put_contents($stage.'/INSTALL.txt', install_readme($version, $extraPlugins));
 
 // ---------------------------------------------------------------------------
 // Zip it.
 // ---------------------------------------------------------------------------
 @mkdir($root.'/downloads', 0755, true);
-$zipPath = $root.'/downloads/magna-cms-v'.$version.'.zip';
+$zipPath = $root.'/downloads/magna-cms-v'.$version.$suffix.'.zip';
 @unlink($zipPath);
 
 say("Creating {$zipPath}", C_GREEN);
@@ -274,7 +324,7 @@ $zip->close();
 rrmdir($stage);
 
 $sizeMb = round(filesize($zipPath) / 1048576, 1);
-say("Done. {$count} files, {$sizeMb} MB -> downloads/magna-cms-v{$version}.zip", C_GREEN);
+say("Done. {$count} files, {$sizeMb} MB -> downloads/magna-cms-v{$version}{$suffix}.zip", C_GREEN);
 
 // ===========================================================================
 // Helpers.
@@ -397,8 +447,27 @@ function root_web_config(): string
 XML;
 }
 
-function install_readme(string $version): string
+function install_readme(string $version, array $extraPlugins = []): string
 {
+    $hub = '';
+    if ($extraPlugins !== []) {
+        $hub = <<<'TXT'
+
+
+Bundled core plugins (hub build)
+--------------------------------
+This build ships the Core Plugin Manager and the Marketplace. After the
+installer finishes, sign in and:
+
+  1. Open  System  ->  Plugins, and enable "Core Plugin Manager" and
+     "Marketplace". (Enabling runs their database migrations.)
+  2. The Core Plugin Manager (System -> Core Plugin Manager) then lets you
+     install and update plugins — including these two — by uploading a plugin
+     ZIP directly from your computer. No marketplace connection required.
+
+TXT;
+    }
+
     return <<<TXT
 Magna CMS v{$version} — installation
 ====================================
@@ -419,7 +488,7 @@ Magna CMS v{$version} — installation
 
 That's it — no command line, no Composer needed. The installer disables
 itself once setup is complete.
-
+{$hub}
 Advanced (server you control): for the tightest security, point your web
 server's document root directly at the public/ directory. The bundled root
 forwarder is only there so the "extract to the domain root" flow works on
