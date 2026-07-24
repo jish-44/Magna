@@ -15,18 +15,17 @@ class InstallServiceProvider extends ServiceProvider
             return new EnvWriter(config()->string('magna.install.env_path', base_path('.env')));
         });
 
-        // Must run in register(), before any other provider's boot(): plugin
-        // discovery calls Schema::hasTable() and the exception handler reads the
-        // cache during boot. On a fresh unzip (no .env) both would hit the
-        // default `database` cache store / missing SQLite file and 500 before
-        // the installer can render. Overriding config here makes the whole
-        // pre-install runtime self-contained.
+        // Must run in register(), before any other provider's boot(): the
+        // exception handler and various providers read the cache during boot.
+        // On a fresh unzip (no .env) the default `database` cache store needs a
+        // database that does not exist yet. Force file sessions and an array
+        // cache so nothing pre-install depends on a database driver at all.
+        // (Providers that read tables are separately guarded by
+        // Installer::isInstalled() so they never touch the DB before install.)
         if (! Installer::isInstalled() && ! $this->app->runningInConsole()) {
             config([
                 'session.driver' => 'file',
                 'cache.default' => 'array',
-                'database.default' => 'sqlite',
-                'database.connections.sqlite.database' => ':memory:',
             ]);
         }
     }

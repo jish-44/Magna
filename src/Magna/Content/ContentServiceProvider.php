@@ -9,6 +9,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Magna\Auth\PermissionRegistry;
+use Magna\Install\Installer;
 use Magna\Content\Console\AddPerformanceIndexesCommand;
 use Magna\Content\Console\MakeTypeCommand;
 use Magna\Content\Console\PublishScheduledCommand;
@@ -107,7 +108,9 @@ class ContentServiceProvider extends ServiceProvider
             $registry->loadFromDirectory($schemasDir);
         }
 
-        if (Schema::hasTable('content_types')) {
+        // Skip DB access until installed — pre-install there may be no database
+        // driver at all, and Schema::hasTable would throw instead of returning.
+        if (Installer::isInstalled() && Schema::hasTable('content_types')) {
             $registry->loadFromDatabase();
         }
 

@@ -6,6 +6,7 @@ namespace Magna\Settings;
 
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
+use Magna\Install\Installer;
 
 /**
  * Applies the DB-backed PerformanceSettings (cache/queue driver, Redis
@@ -29,6 +30,15 @@ class PerformanceServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
+        // Before installation there is no usable database — and the host may
+        // not even have a database driver enabled yet (the installer's
+        // requirements step is what verifies that). Skip entirely so a fresh
+        // unzip renders the installer instead of a 500. Calling Schema::hasTable
+        // here would itself try to connect and throw "could not find driver".
+        if (! Installer::isInstalled()) {
+            return;
+        }
+
         if (! Schema::hasTable('settings')) {
             // Fresh install, before the first migration has run.
             return;

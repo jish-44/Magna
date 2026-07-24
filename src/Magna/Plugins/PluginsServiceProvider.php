@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Magna\Plugins;
 
 use Illuminate\Support\ServiceProvider;
+use Magna\Install\Installer;
 use Magna\Marketplace\ComposerRunner;
 use Magna\Marketplace\ProcessComposerRunner;
 use Magna\Plugins\Commands\PluginDisableCommand;
@@ -35,7 +36,13 @@ class PluginsServiceProvider extends ServiceProvider
     {
         /** @var PluginManager $manager */
         $manager = $this->app->make(PluginManager::class);
-        $manager->bootEnabledPlugins();
+
+        // Enabled plugins live in the database; skip until installed so a fresh
+        // unzip (possibly with no database driver yet) renders the installer
+        // rather than 500ing while querying the plugins table.
+        if (Installer::isInstalled()) {
+            $manager->bootEnabledPlugins();
+        }
 
         if ($this->app->runningInConsole()) {
             $this->commands([
