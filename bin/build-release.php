@@ -346,12 +346,83 @@ $zip->close();
 
 rrmdir($stage);
 
+// ---------------------------------------------------------------------------
+// Self-verification. Every past release break has been one of two things: a
+// file the app needs was missing from the archive, or entries carried no unix
+// permission bits and a host extracted them unreadable. Fail the build loudly
+// here rather than shipping a broken zip.
+// ---------------------------------------------------------------------------
+verify_release($zipPath, $extraPlugins);
+
 $sizeMb = round(filesize($zipPath) / 1048576, 1);
 say("Done. {$count} files, {$sizeMb} MB -> downloads/magna-cms-v{$version}{$suffix}.zip", C_GREEN);
 
 // ===========================================================================
 // Helpers.
 // ===========================================================================
+
+/**
+ * Open the finished archive and assert it is actually installable: the files
+ * the app cannot boot without are present, and every entry carries readable
+ * POSIX permissions (never mode 0, which some hosts extract as unreadable).
+ * The set of required files grows when a profile bundles extra plugins.
+ */
+function verify_release(string $zipPath, array $extraPlugins): void
+{
+    say('Verifying archive', C_GREEN);
+
+    $zip = new ZipArchive();
+    if ($zip->open($zipPath) !== true) {
+        fail("Verification could not reopen {$zipPath}.");
+    }
+
+    // Files the application cannot run without.
+    $required = [
+        'index.php', '.htaccess', 'artisan', '.env.example',
+        'public/index.php', 'public/.htaccess', 'public/build/manifest.json',
+        'vendor/autoload.php', 'vendor/composer/autoload_real.php',
+        'vendor/symfony/deprecation-contracts/function.php',
+    ];
+    // Bundled plugins must actually be in vendor/ (package name = vendor path).
+    foreach ($extraPlugins as $spec) {
+        $pkg = explode(':', $spec, 2)[0];
+        $required[] = 'vendor/'.$pkg.'/composer.json';
+    }
+
+    $missing = [];
+    foreach ($required as $name) {
+        if ($zip->locateName($name) === false) {
+            $missing[] = $name;
+        }
+    }
+    if ($missing !== []) {
+        $zip->close();
+        fail('Archive is missing required files: '.implode(', ', $missing));
+    }
+
+    // Permission bits: scan every entry, flag any regular file whose stored
+    // unix mode is 0 (which becomes 0000/unreadable on strict extractors).
+    $badPerms = 0;
+    $firstBad = null;
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $name = $zip->getNameIndex($i);
+        $opsys = 0;
+        $attr = 0;
+        $zip->getExternalAttributesIndex($i, $opsys, $attr);
+        $mode = ($attr >> 16) & 0xFFFF;
+        if (($mode & 0777) === 0) {
+            $badPerms++;
+            $firstBad ??= $name;
+        }
+    }
+    $zip->close();
+
+    if ($badPerms > 0) {
+        fail("{$badPerms} archive entries have no permission bits (e.g. {$firstBad}). Hosts may extract them unreadable.");
+    }
+
+    say("  OK — required files present, permissions set on all entries", C_GREEN);
+}
 
 function copy_tree(string $src, string $dst, array $excludeNames, array $excludeExt): void
 {
