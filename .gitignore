@@ -21,6 +21,9 @@
 /.zed
 /auth.json
 /node_modules
+# Built release archives are published as GitHub Release assets, never committed.
+/downloads/*
+!/downloads/README.md
 /public/build
 /public/fonts-manifest.dev.json
 /public/hot
