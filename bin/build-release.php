@@ -191,6 +191,20 @@ foreach (($composerJson['repositories'] ?? []) as $i => $repo) {
     $composerJson['repositories'][$i]['options']['symlink'] = false;
     say('  rewired path repo -> '.str_replace('\\', '/', $abs));
 }
+
+// Strip bundled plugins from the release. The public core template ships with
+// NO plugins — they are distributed separately (own repos / marketplace / local
+// ZIP upload). magna-cms/plugin-sdk is deliberately kept: it is the SDK library
+// the core plugin system depends on, not a plugin. The --hub profile adds its
+// own plugins back explicitly later via composer require.
+$stripPlugins = ['magna-cms/docs'];
+foreach ($stripPlugins as $pkg) {
+    if (isset($composerJson['require'][$pkg])) {
+        unset($composerJson['require'][$pkg]);
+        say("  stripped plugin from release: {$pkg}");
+    }
+}
+
 file_put_contents(
     $stage.'/composer.json',
     json_encode($composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
